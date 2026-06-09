@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/WorkflowDashboard.Api/WorkflowDashboard.Api.csproj" />
+    <Project Path="src/WorkflowDashboard.Shared/WorkflowDashboard.Shared.csproj" />
+    <Project Path="src/workflow-dashboard-ui/workflow-dashboard-ui.esproj">
+      <Build />
+      <Deploy />
+    </Project>
+  </Folder>
+  <Folder Name="/Docker/">
+    <File Path="Dockerfile" />
+    <File Path="docker-compose.yml" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="global.json" />
+  </Folder>
+</Solution>

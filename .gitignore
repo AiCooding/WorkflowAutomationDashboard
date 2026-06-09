@@ -1,0 +1,28 @@
+# .NET
+bin/
+obj/
+publish/
+*.user
+*.suo
+*.vs/
+
+# Angular
+node_modules/
+dist/
+.angular/
+
+# IDE
+.idea/
+.vscode/
+
+# SQLite
+*.db
+*.db-shm
+*.db-wal
+
+# Docker
+.env
+
+# OS
+Thumbs.db
+.DS_Store

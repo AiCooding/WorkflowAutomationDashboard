@@ -1,0 +1,71 @@
+:host { display: block; }
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  h1 { margin: 0; font-size: 28px; font-weight: 400; }
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  mat-form-field { min-width: 200px; }
+  .count { margin-left: auto; font-size: 13px; opacity: 0.7; }
+}
+
+.table-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+table { width: 100%; }
+
+.agent-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.muted {
+  font-size: 12px;
+  opacity: 0.6;
+  font-family: monospace;
+}
+
+.muted.small {
+  font-size: 11px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 10px;
+  border-radius: 999px;
+  text-transform: capitalize;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.empty {
+  padding: 32px;
+  text-align: center;
+  opacity: 0.6;
+}
+
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}

@@ -1,0 +1,16 @@
+services:
+  dashboard:
+    build: .
+    ports:
+      - "${DASHBOARD_PORT:-5080}:5080"
+    volumes:
+      - dashboard-data:/data
+      - ./docs:/app/docs
+    environment:
+      - ConnectionStrings__WorkflowDb=Data Source=/data/workflow.db
+      - Polling__IntervalSeconds=3
+      - Specs__RootDir=/app/docs/features
+    restart: unless-stopped
+
+volumes:
+  dashboard-data:

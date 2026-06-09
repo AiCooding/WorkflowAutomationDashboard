@@ -1,0 +1,70 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.app-shell {
+  height: 100%;
+}
+
+.app-sidenav {
+  width: 240px;
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--mat-sys-surface-container-low);
+}
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 20px 14px;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+
+  mat-icon {
+    color: var(--mat-sys-primary);
+  }
+}
+
+.active-link {
+  background: var(--mat-sys-secondary-container) !important;
+  color: var(--mat-sys-on-secondary-container) !important;
+}
+
+.badge {
+  background: var(--mat-sys-error);
+  color: var(--mat-sys-on-error);
+  border-radius: 10px;
+  padding: 1px 8px;
+  font-size: 12px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.app-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+
+  .spacer {
+    flex: 1 1 auto;
+  }
+
+  mat-icon.connected {
+    color: var(--mat-sys-primary);
+  }
+
+  mat-icon.disconnected {
+    color: var(--mat-sys-error);
+  }
+}
+
+.app-content {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}

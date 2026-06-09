@@ -1,0 +1,103 @@
+:host {
+  display: block;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 24px;
+
+  h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 400;
+  }
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.summary-card {
+  padding: 16px;
+}
+
+.card-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.card-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  mat-icon {
+    font-size: 28px;
+    width: 28px;
+    height: 28px;
+  }
+}
+
+.card-value {
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+.card-label {
+  font-size: 13px;
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
+.section-title {
+  margin: 24px 0 12px;
+  font-size: 18px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.live-dot {
+  color: #16a34a;
+  font-size: 12px;
+  width: 12px;
+  height: 12px;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.activity-card {
+  padding: 0;
+}
+
+.empty {
+  padding: 32px;
+  text-align: center;
+  opacity: 0.6;
+}
+
+.event-meta {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}

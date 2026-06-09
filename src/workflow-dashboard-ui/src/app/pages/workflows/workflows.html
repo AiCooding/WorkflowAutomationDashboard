@@ -1,0 +1,123 @@
+<div class="page-header">
+  <h1>Workflows</h1>
+  <button mat-icon-button matTooltip="Refresh" (click)="load()">
+    <mat-icon>refresh</mat-icon>
+  </button>
+</div>
+
+<mat-card appearance="outlined" class="filters">
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Status</mat-label>
+    <mat-select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)">
+      <mat-option [value]="''">All</mat-option>
+      @for (s of statuses; track s) {
+        <mat-option [value]="s">{{ s }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Feature ID contains</mat-label>
+    <input matInput [ngModel]="featureFilter()" (ngModelChange)="featureFilter.set($event)" placeholder="auth, billing…" />
+  </mat-form-field>
+
+  <div class="count">{{ filtered().length }} of {{ all().length }}</div>
+</mat-card>
+
+@if (loading()) {
+  <div class="loading-row"><mat-spinner diameter="32"></mat-spinner></div>
+} @else if (filtered().length === 0) {
+  <mat-card appearance="outlined" class="empty">No workflows match the current filters.</mat-card>
+} @else {
+  <mat-accordion class="workflow-list" multi>
+    @for (w of filtered(); track w.id) {
+      <mat-expansion-panel (opened)="onPanelOpened(w)">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon [style.color]="styles.workflow(w.status).color">
+              {{ styles.workflow(w.status).icon }}
+            </mat-icon>
+            <span class="workflow-type">{{ w.type }}</span>
+            <span class="workflow-id">{{ w.id }}</span>
+          </mat-panel-title>
+          <mat-panel-description>
+            <span class="status-pill" [style.background]="styles.workflow(w.status).color + '20'" [style.color]="styles.workflow(w.status).color">
+              {{ w.status }}
+            </span>
+            <span class="meta">{{ w.agents?.length || 0 }} agent(s) · {{ duration(w) }} · {{ w.createdAt | date: 'short' }}</span>
+          </mat-panel-description>
+        </mat-expansion-panel-header>
+
+        <div class="panel-body">
+          <div class="info-grid">
+            <div><span class="label">Feature</span><span>{{ w.featureId || '—' }}</span></div>
+            <div><span class="label">Started</span><span>{{ w.startedAt ? (w.startedAt | date: 'short') : '—' }}</span></div>
+            <div><span class="label">Completed</span><span>{{ w.completedAt ? (w.completedAt | date: 'short') : '—' }}</span></div>
+            @if (w.errorMessage) {
+              <div class="error"><span class="label">Error</span><span>{{ w.errorMessage }}</span></div>
+            }
+          </div>
+
+          <h4>Agents</h4>
+          @if ((w.agents?.length || 0) === 0) {
+            <div class="empty-inline">No agents reported yet.</div>
+          } @else {
+            <ul class="agent-list">
+              @for (a of w.agents; track a.id) {
+                <li>
+                  <mat-icon [style.color]="styles.agent(a.status).color">{{ styles.agent(a.status).icon }}</mat-icon>
+                  <strong>{{ a.agentType }}</strong>
+                  <span class="muted">{{ a.id }}</span>
+                  <span class="status-pill small" [style.background]="styles.agent(a.status).color + '20'" [style.color]="styles.agent(a.status).color">
+                    {{ a.status }}
+                  </span>
+                  @if (a.currentTask) {
+                    <span class="task">{{ a.currentTask }}</span>
+                  }
+                </li>
+              }
+            </ul>
+          }
+
+          <h4>Dialog history</h4>
+          @if (dialogFor(w.id)?.loading) {
+            <div class="loading-row"><mat-spinner diameter="24"></mat-spinner></div>
+          } @else if ((dialogFor(w.id)?.inputs?.length || 0) === 0) {
+            <div class="empty-inline">No questions asked in this workflow.</div>
+          } @else {
+            <ol class="dialog-list">
+              @for (ir of dialogFor(w.id)!.inputs; track ir.id) {
+                <li class="dialog-item" [class.answered]="ir.status === 'answered'">
+                  <div class="dialog-meta">
+                    <mat-icon class="dialog-icon">{{ ir.status === 'answered' ? 'check_circle' : 'help' }}</mat-icon>
+                    <span class="dialog-time">{{ ir.createdAt | date: 'short' }}</span>
+                    <span class="status-pill small">{{ ir.status }}</span>
+                  </div>
+                  <div class="dialog-q">{{ ir.question }}</div>
+                  @if (ir.response) {
+                    <div class="dialog-a">
+                      <mat-icon class="reply-icon">reply</mat-icon>
+                      <span>{{ ir.response }}</span>
+                    </div>
+                  }
+                </li>
+              }
+            </ol>
+          }
+
+          <div class="actions">
+            @if (w.status === 'running') {
+              <button mat-stroked-button (click)="pause(w)"><mat-icon>pause</mat-icon> Pause</button>
+            }
+            @if (w.status === 'paused') {
+              <button mat-stroked-button (click)="resume(w)"><mat-icon>play_arrow</mat-icon> Resume</button>
+            }
+            @if (w.status === 'running' || w.status === 'paused' || w.status === 'waiting_input') {
+              <button mat-stroked-button color="warn" (click)="cancel(w)"><mat-icon>cancel</mat-icon> Cancel</button>
+            }
+          </div>
+        </div>
+      </mat-expansion-panel>
+    }
+  </mat-accordion>
+}

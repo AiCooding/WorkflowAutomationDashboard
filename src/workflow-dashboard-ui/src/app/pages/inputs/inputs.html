@@ -1,0 +1,78 @@
+<div class="page-header">
+  <h1>
+    Input requests
+    @if (count() > 0) {
+      <span class="count-badge">{{ count() }}</span>
+    }
+  </h1>
+  <button mat-icon-button matTooltip="Refresh" (click)="load()" aria-label="Refresh">
+    <mat-icon>refresh</mat-icon>
+  </button>
+</div>
+
+@if (loading()) {
+  <div class="loading-row"><mat-spinner diameter="32"></mat-spinner></div>
+} @else if (items().length === 0) {
+  <mat-card appearance="outlined" class="empty">
+    <mat-icon>check_circle</mat-icon>
+    <p>All caught up. No pending input requests.</p>
+  </mat-card>
+} @else {
+  <div class="cards">
+    @for (item of items(); track item.id) {
+      <mat-card appearance="outlined" class="input-card">
+        <div class="card-header">
+          <mat-icon class="head-icon">help</mat-icon>
+          <div class="card-title">
+            <div class="question">{{ item.question }}</div>
+            <div class="muted">
+              agent {{ item.agentId }} · workflow {{ item.workflowId }} ·
+              {{ item.createdAt | date: 'short' }}
+            </div>
+          </div>
+        </div>
+
+        @if (item.parsedOptions.length > 0) {
+          <div class="options">
+            @for (opt of item.parsedOptions; track opt) {
+              <button
+                mat-stroked-button
+                [class.selected]="item.draft === opt"
+                (click)="pickOption(item.id, opt)"
+              >
+                {{ opt }}
+              </button>
+            }
+          </div>
+        }
+
+        <mat-form-field appearance="outline" class="answer-input">
+          <mat-label>Your response</mat-label>
+          <input
+            matInput
+            [ngModel]="item.draft"
+            (ngModelChange)="updateDraft(item.id, $event)"
+            (keydown.enter)="submit(item)"
+            placeholder="Type your answer…"
+          />
+        </mat-form-field>
+
+        <div class="actions">
+          <button
+            mat-flat-button
+            color="primary"
+            [disabled]="item.submitting || !item.draft.trim()"
+            (click)="submit(item)"
+          >
+            @if (item.submitting) {
+              <mat-spinner diameter="18"></mat-spinner>
+            } @else {
+              <mat-icon>send</mat-icon>
+            }
+            Submit
+          </button>
+        </div>
+      </mat-card>
+    }
+  </div>
+}

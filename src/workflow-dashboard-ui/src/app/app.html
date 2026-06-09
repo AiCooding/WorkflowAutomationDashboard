@@ -1,0 +1,59 @@
+<mat-sidenav-container class="app-shell">
+  <mat-sidenav mode="side" opened class="app-sidenav">
+    <div class="app-brand">
+      <mat-icon>dashboard_customize</mat-icon>
+      <span>Workflow</span>
+    </div>
+
+    <mat-nav-list>
+      @for (item of navItems; track item.route) {
+        <a
+          mat-list-item
+          [routerLink]="item.route"
+          routerLinkActive="active-link"
+          [routerLinkActiveOptions]="{ exact: !!item.exact }"
+        >
+          <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
+          <span matListItemTitle>{{ item.label }}</span>
+          @if (item.route === '/inputs' && pendingInputs() > 0) {
+            <span matListItemMeta class="badge">{{ pendingInputs() }}</span>
+          }
+        </a>
+      }
+    </mat-nav-list>
+  </mat-sidenav>
+
+  <mat-sidenav-content>
+    <mat-toolbar class="app-toolbar">
+      <span>{{ title }}</span>
+      <span class="spacer"></span>
+
+      <button
+        mat-icon-button
+        [matTooltip]="(connected$ | async) ? 'Live updates connected' : 'Live updates disconnected'"
+        aria-label="Connection status"
+      >
+        <mat-icon [class.connected]="connected$ | async" [class.disconnected]="!(connected$ | async)">
+          {{ (connected$ | async) ? 'wifi' : 'wifi_off' }}
+        </mat-icon>
+      </button>
+
+      <a
+        mat-icon-button
+        routerLink="/inputs"
+        matTooltip="Pending inputs"
+        [matBadge]="pendingInputs()"
+        [matBadgeHidden]="pendingInputs() === 0"
+        matBadgeColor="warn"
+        matBadgeSize="small"
+        aria-label="Pending inputs"
+      >
+        <mat-icon>notifications</mat-icon>
+      </a>
+    </mat-toolbar>
+
+    <main class="app-content">
+      <router-outlet />
+    </main>
+  </mat-sidenav-content>
+</mat-sidenav-container>

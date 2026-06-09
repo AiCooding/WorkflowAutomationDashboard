@@ -1,0 +1,136 @@
+:host { display: block; }
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+
+  h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 400;
+  }
+}
+
+.create-card {
+  padding: 20px;
+  margin-bottom: 16px;
+
+  h3 {
+    margin: 0 0 16px;
+    font-weight: 500;
+  }
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+
+  .full-width {
+    grid-column: 1 / -1;
+  }
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.table-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+table {
+  width: 100%;
+}
+
+.name-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.muted {
+  font-size: 12px;
+  opacity: 0.65;
+  font-family: monospace;
+}
+
+.muted.small {
+  font-family: inherit;
+  font-style: italic;
+  margin-top: 2px;
+}
+
+.status-select {
+  min-width: 160px;
+  font-size: 13px;
+}
+
+.empty {
+  padding: 32px;
+  text-align: center;
+  opacity: 0.6;
+}
+
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+.spec-card {
+  padding: 20px;
+  margin-top: 16px;
+}
+
+.spec-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+
+  h3 { margin: 0 0 4px; font-weight: 500; }
+
+  .muted {
+    font-size: 12px;
+    opacity: 0.6;
+    font-family: monospace;
+  }
+}
+
+.spec-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.spec-content {
+  background: rgba(0, 0, 0, 0.04);
+  padding: 16px;
+  border-radius: 6px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 600px;
+  overflow-y: auto;
+  margin: 0;
+}
+
+button[mat-icon-button].active {
+  background: rgba(103, 80, 164, 0.12);
+  color: #6750a4;
+}
