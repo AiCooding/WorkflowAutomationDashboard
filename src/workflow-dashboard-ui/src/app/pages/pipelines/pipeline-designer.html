@@ -1,0 +1,111 @@
+<div class="page-header">
+  <div>
+    <a mat-button routerLink="/pipelines">
+      <mat-icon>arrow_back</mat-icon>
+      Pipelines
+    </a>
+    <h1>{{ pipelineId() ? 'Edit pipeline' : 'New pipeline' }}</h1>
+  </div>
+  <button mat-flat-button color="primary" (click)="save()" [disabled]="saving() || loading()">
+    <mat-icon>save</mat-icon>
+    Save
+  </button>
+</div>
+
+@if (loading()) {
+  <mat-card appearance="outlined" class="loading-card">Loading…</mat-card>
+} @else {
+  <div class="layout">
+    <mat-card appearance="outlined" class="editor-card">
+      <h3>Pipeline details</h3>
+
+      <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
+        <mat-label>Name</mat-label>
+        <input matInput [ngModel]="model().name" (ngModelChange)="updateField('name', $event)" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
+        <mat-label>Description</mat-label>
+        <textarea matInput rows="3" [ngModel]="model().description" (ngModelChange)="updateField('description', $event)"></textarea>
+      </mat-form-field>
+
+      <div class="toolbar">
+        <button mat-stroked-button color="primary" (click)="addStep('agent')">
+          <mat-icon>smart_toy</mat-icon>
+          Add agent step
+        </button>
+        <button mat-stroked-button (click)="addStep('userApproval')">
+          <mat-icon>approval</mat-icon>
+          Add approval step
+        </button>
+      </div>
+
+      <div class="step-list">
+        @for (step of model().steps; track $index) {
+          <mat-card appearance="outlined" class="step-card">
+            <div class="step-card-header">
+              <h4>Step {{ $index + 1 }}</h4>
+              <div class="step-actions">
+                <button mat-icon-button (click)="moveStep($index, -1)" [disabled]="$index === 0"><mat-icon>arrow_upward</mat-icon></button>
+                <button mat-icon-button (click)="moveStep($index, 1)" [disabled]="$index === model().steps.length - 1"><mat-icon>arrow_downward</mat-icon></button>
+                <button mat-icon-button color="warn" (click)="removeStep($index)"><mat-icon>delete</mat-icon></button>
+              </div>
+            </div>
+
+            <div class="step-grid">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Step ID</mat-label>
+                <input matInput [ngModel]="step.id" (ngModelChange)="updateStep($index, { id: $event })" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Type</mat-label>
+                <mat-select [ngModel]="step.type" (ngModelChange)="updateStep($index, { type: $event })">
+                  <mat-option value="agent">Agent</mat-option>
+                  <mat-option value="userApproval">User approval</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
+                <mat-label>Name</mat-label>
+                <input matInput [ngModel]="step.name" (ngModelChange)="updateStep($index, { name: $event })" />
+              </mat-form-field>
+
+              @if (step.type === 'agent') {
+                <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
+                  <mat-label>Agent</mat-label>
+                  <mat-select [ngModel]="step.agentSlug" (ngModelChange)="updateStep($index, { agentSlug: $event })">
+                    @for (agent of agents(); track agent.slug) {
+                      <mat-option [value]="agent.slug">{{ agent.displayName }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+              } @else {
+                <mat-checkbox [ngModel]="step.canGiveFeedback" (ngModelChange)="updateStep($index, { canGiveFeedback: !!$event })">
+                  Allow reviewer feedback
+                </mat-checkbox>
+
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Return to step (optional)</mat-label>
+                  <mat-select [ngModel]="step.returnTo" (ngModelChange)="updateStep($index, { returnTo: $event || null })">
+                    <mat-option value="">End run on rejection</mat-option>
+                    @for (candidate of model().steps; track candidate.id) {
+                      @if (candidate.id !== step.id) {
+                        <mat-option [value]="candidate.id">{{ candidate.name }} ({{ candidate.id }})</mat-option>
+                      }
+                    }
+                  </mat-select>
+                </mat-form-field>
+              }
+            </div>
+          </mat-card>
+        }
+      </div>
+    </mat-card>
+
+    <mat-card appearance="outlined" class="preview-card">
+      <h3>JSON preview</h3>
+      <pre>{{ stepsJsonPreview() }}</pre>
+    </mat-card>
+  </div>
+}

@@ -1,92 +1,30 @@
 <div class="page-header">
   <h1>Features</h1>
-  <button mat-flat-button color="primary" (click)="toggleCreate()">
-    <mat-icon>{{ showCreateForm() ? 'close' : 'add' }}</mat-icon>
-    {{ showCreateForm() ? 'Cancel' : 'New feature' }}
-  </button>
-</div>
-
-@if (showCreateForm()) {
-  <mat-card appearance="outlined" class="create-card">
-    <h3>Create feature</h3>
-    <div class="form-grid">
-      <mat-form-field appearance="outline">
-        <mat-label>Name</mat-label>
-        <input
-          matInput
-          [ngModel]="newFeature().name"
-          (ngModelChange)="updateForm('name', $event)"
-          required
-        />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>ID (auto-generated if blank)</mat-label>
-        <input
-          matInput
-          [ngModel]="newFeature().id"
-          (ngModelChange)="updateForm('id', $event)"
-          placeholder="my-feature"
-        />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>Status</mat-label>
-        <mat-select
-          [ngModel]="newFeature().status"
-          (ngModelChange)="updateForm('status', $event)"
-        >
-          @for (s of statuses; track s) {
-            <mat-option [value]="s">{{ s }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>Priority</mat-label>
-        <input
-          matInput
-          type="number"
-          [ngModel]="newFeature().priority"
-          (ngModelChange)="updateForm('priority', +$event)"
-        />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" class="full-width">
-        <mat-label>Description</mat-label>
-        <textarea
-          matInput
-          rows="3"
-          [ngModel]="newFeature().description"
-          (ngModelChange)="updateForm('description', $event)"
-        ></textarea>
-      </mat-form-field>
-    </div>
-
-    <div class="form-actions">
-      <button mat-button (click)="toggleCreate()">Cancel</button>
-      <button mat-flat-button color="primary" (click)="saveNew()" [disabled]="saving()">
-        @if (saving()) {
-          <mat-spinner diameter="18"></mat-spinner>
-        } @else {
-          Create
+  <div class="header-actions">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="repo-filter">
+      <mat-label>Repository</mat-label>
+      <mat-select [value]="repoFilter()" (selectionChange)="repoFilter.set($event.value)">
+        <mat-option [value]="allFilter">All</mat-option>
+        <mat-option [value]="orphanFilter">Orphan (no repository)</mat-option>
+        @for (r of repositories(); track r.id) {
+          <mat-option [value]="r.id">{{ r.name }}</mat-option>
         }
-      </button>
-    </div>
-  </mat-card>
-}
+      </mat-select>
+    </mat-form-field>
+    <button mat-flat-button color="primary" (click)="openNewFeatureDialog()">
+      <mat-icon>add</mat-icon>
+      New feature
+    </button>
+  </div>
+</div>
 
 <mat-card appearance="outlined" class="table-card">
   @if (loading()) {
-    <div class="loading-row">
-      <mat-spinner diameter="32"></mat-spinner>
-    </div>
-  } @else if (features().length === 0) {
-    <div class="empty">
-      No features yet. Click <strong>New feature</strong> to create one.
-    </div>
+    <div class="loading-row"><mat-spinner diameter="32"></mat-spinner></div>
+  } @else if (visibleFeatures().length === 0) {
+    <div class="empty">No features match the current filter.</div>
   } @else {
-    <table mat-table [dataSource]="features()" class="mat-elevation-z0">
+    <table mat-table [dataSource]="visibleFeatures()" class="mat-elevation-z0">
       <ng-container matColumnDef="name">
         <th mat-header-cell *matHeaderCellDef>Name</th>
         <td mat-cell *matCellDef="let f">
@@ -96,23 +34,35 @@
             @if (f.description) {
               <span class="muted small">{{ f.description }}</span>
             }
+            @if (f.specFolder) {
+              <span class="muted small">📁 {{ f.specFolder }}</span>
+            }
           </div>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="repository">
+        <th mat-header-cell *matHeaderCellDef>Repository</th>
+        <td mat-cell *matCellDef="let f">
+          @if (f.repositoryId) {
+            <span>{{ repoName(f.repositoryId) }}</span>
+          } @else {
+            <mat-chip class="orphan-chip" disableRipple>Orphan</mat-chip>
+          }
         </td>
       </ng-container>
 
       <ng-container matColumnDef="status">
         <th mat-header-cell *matHeaderCellDef>Status</th>
         <td mat-cell *matCellDef="let f">
-          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="status-select">
-            <mat-select [value]="f.status" (selectionChange)="updateStatus(f, $event.value)">
-              @for (s of statuses; track s) {
-                <mat-option [value]="s">
-                  <mat-icon [style.color]="styles.feature(s).color">{{ styles.feature(s).icon }}</mat-icon>
-                  {{ s }}
-                </mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <span
+            class="status-badge"
+            [style.background-color]="styles.feature(f.derivedStatus ?? f.status).color + '20'"
+            [style.color]="styles.feature(f.derivedStatus ?? f.status).color"
+          >
+            <mat-icon class="badge-icon">{{ styles.feature(f.derivedStatus ?? f.status).icon }}</mat-icon>
+            {{ f.derivedStatus ?? f.status }}
+          </span>
         </td>
       </ng-container>
 
@@ -129,7 +79,7 @@
       <ng-container matColumnDef="actions">
         <th mat-header-cell *matHeaderCellDef></th>
         <td mat-cell *matCellDef="let f">
-          @if (f.specPath) {
+          @if (f.specFolder && f.repositoryId) {
             <button
               mat-icon-button
               matTooltip="View spec"
@@ -151,29 +101,14 @@
   }
 </mat-card>
 
-@if (viewingFeatureId()) {
+@if (viewingFeatureId(); as id) {
   <mat-card appearance="outlined" class="spec-card">
     <div class="spec-header">
-      <div>
-        <h3>Feature spec</h3>
-        @if (viewingSpec(); as s) {
-          <span class="muted">{{ s.specPath }} · {{ s.fullPath }}</span>
-        }
-      </div>
+      <h3>Feature spec</h3>
       <button mat-icon-button matTooltip="Close" (click)="closeSpec()">
         <mat-icon>close</mat-icon>
       </button>
     </div>
-
-    @if (specLoading()) {
-      <div class="loading-row"><mat-spinner diameter="32"></mat-spinner></div>
-    } @else if (specError()) {
-      <div class="spec-error">
-        <mat-icon>error_outline</mat-icon>
-        <span>{{ specError() }}</span>
-      </div>
-    } @else if (viewingSpec(); as s) {
-      <pre class="spec-content">{{ s.content }}</pre>
-    }
+    <app-spec-viewer [featureId]="id"></app-spec-viewer>
   </mat-card>
 }

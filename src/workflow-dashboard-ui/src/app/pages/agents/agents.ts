@@ -1,34 +1,26 @@
-import { CommonModule, DatePipe } from '@angular/common';
-import { Component, DestroyRef, inject, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+import { Component, computed, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
+import { MatListModule } from '@angular/material/list';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSelectModule } from '@angular/material/select';
-import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { AgentsService } from '../../core/api/agents.service';
-import { Agent, AgentStatus } from '../../core/models';
-import { formatDuration, StatusStyle } from '../../shared/status-style';
-import { SignalRService } from '../../core/realtime/signalr.service';
-
-const STATUSES: AgentStatus[] = ['idle', 'running', 'waiting_input', 'completed', 'failed'];
+import { CatalogService } from '../../core/api/catalog.service';
+import { CatalogEntry } from '../../core/models';
 
 @Component({
   selector: 'app-agents',
   imports: [
     CommonModule,
-    DatePipe,
-    FormsModule,
-    MatTableModule,
+    RouterLink,
     MatCardModule,
-    MatFormFieldModule,
-    MatSelectModule,
+    MatListModule,
     MatIconModule,
     MatButtonModule,
+    MatChipsModule,
     MatTooltipModule,
     MatProgressSpinnerModule,
   ],
@@ -36,52 +28,26 @@ const STATUSES: AgentStatus[] = ['idle', 'running', 'waiting_input', 'completed'
   styleUrl: './agents.scss',
 })
 export class AgentsPage {
-  private readonly agentsApi = inject(AgentsService);
-  private readonly signalR = inject(SignalRService);
-  private readonly destroyRef = inject(DestroyRef);
-  readonly styles = inject(StatusStyle);
+  private readonly catalog = inject(CatalogService);
 
-  readonly statuses = STATUSES;
-  readonly statusFilter = signal<AgentStatus | ''>('');
   readonly loading = signal(true);
-  readonly agents = signal<Agent[]>([]);
+  readonly all = signal<CatalogEntry[]>([]);
 
-  readonly columns = ['agentType', 'status', 'currentTask', 'duration', 'sessionId'];
+  readonly agents = computed(() => this.all().filter((e) => e.kind === 'agent'));
+  readonly brokenCount = computed(() => this.agents().filter((e) => e.isBroken).length);
 
   constructor() {
     this.load();
-
-    this.signalR.agentUpdated$
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((updated) => {
-        this.agents.update((list) => {
-          const i = list.findIndex((a) => a.id === updated.id);
-          if (i === -1) return [updated, ...list];
-          const copy = [...list];
-          copy[i] = updated;
-          return copy;
-        });
-      });
   }
 
   load(): void {
     this.loading.set(true);
-    const status = this.statusFilter() || undefined;
-    this.agentsApi.list(status).subscribe({
+    this.catalog.list().subscribe({
       next: (list) => {
-        this.agents.set(list);
+        this.all.set(list);
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
     });
-  }
-
-  onStatusChange(s: AgentStatus | ''): void {
-    this.statusFilter.set(s);
-    this.load();
-  }
-
-  duration(a: Agent): string {
-    return formatDuration(a.startedAt, a.completedAt);
   }
 }

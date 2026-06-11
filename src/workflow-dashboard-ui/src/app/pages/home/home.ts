@@ -10,8 +10,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RouterLink } from '@angular/router';
 import { startWith } from 'rxjs';
 import { DashboardService } from '../../core/api/dashboard.service';
-import { EventsService } from '../../core/api/events.service';
-import { DashboardSummary, WorkflowEvent } from '../../core/models';
+import { PipelineRunsService } from '../../core/api/pipeline-runs.service';
+import { DashboardSummary, PipelineRun } from '../../core/models';
 import { SignalRService } from '../../core/realtime/signalr.service';
 import { StatusStyle } from '../../shared/status-style';
 
@@ -20,6 +20,7 @@ interface SummaryCard {
   key: keyof DashboardSummary;
   icon: string;
   color: string;
+  route?: string;
 }
 
 @Component({
@@ -40,41 +41,50 @@ interface SummaryCard {
 })
 export class HomePage {
   private readonly dashboard = inject(DashboardService);
-  private readonly events = inject(EventsService);
+  private readonly pipelineRuns = inject(PipelineRunsService);
   private readonly signalR = inject(SignalRService);
   private readonly destroyRef = inject(DestroyRef);
   readonly styles = inject(StatusStyle);
 
   readonly summary = signal<DashboardSummary | null>(null);
-  readonly recentEvents = signal<WorkflowEvent[]>([]);
+  readonly recentRuns = signal<PipelineRun[]>([]);
 
   readonly connected = toSignal(this.signalR.connected$.pipe(startWith(false)), { initialValue: false });
 
   readonly cards: SummaryCard[] = [
-    { label: 'Running workflows', key: 'runningWorkflows', icon: 'play_circle', color: '#2563eb' },
-    { label: 'Active agents', key: 'activeAgents', icon: 'smart_toy', color: '#0891b2' },
-    { label: 'Pending inputs', key: 'pendingInputRequests', icon: 'help', color: '#d97706' },
-    { label: 'Failed', key: 'failedWorkflows', icon: 'error', color: '#dc2626' },
-    { label: 'Waiting input', key: 'waitingInputWorkflows', icon: 'pause_circle', color: '#9333ea' },
-    { label: 'Completed', key: 'completedWorkflows', icon: 'check_circle', color: '#16a34a' },
-    { label: 'Features in progress', key: 'featuresInProgress', icon: 'pending_actions', color: '#2563eb' },
-    { label: 'Total features', key: 'totalFeatures', icon: 'inventory_2', color: '#6b7280' },
+    { label: 'Repositories', key: 'totalRepositories', icon: 'folder', color: '#0d9488', route: '/repositories' },
+    { label: 'Broken repositories', key: 'brokenRepositories', icon: 'broken_image', color: '#dc2626', route: '/repositories' },
+    { label: 'Pipelines', key: 'totalPipelines', icon: 'account_tree', color: '#7c3aed', route: '/pipelines' },
+    { label: 'Running pipeline runs', key: 'runningPipelineRuns', icon: 'play_circle', color: '#2563eb', route: '/pipelines' },
+    { label: 'Waiting approval', key: 'waitingApprovalRuns', icon: 'approval', color: '#d97706', route: '/pipelines' },
+    { label: 'Pending approvals', key: 'pendingApprovals', icon: 'notifications', color: '#ea580c', route: '/pipelines' },
+    { label: 'Failed runs', key: 'failedPipelineRuns', icon: 'error', color: '#dc2626', route: '/pipelines' },
+    { label: 'Completed runs', key: 'completedPipelineRuns', icon: 'check_circle', color: '#16a34a', route: '/pipelines' },
+    { label: 'Features in progress', key: 'featuresInProgress', icon: 'pending_actions', color: '#2563eb', route: '/features' },
+    { label: 'Total features', key: 'totalFeatures', icon: 'inventory_2', color: '#6b7280', route: '/features' },
+    { label: 'Catalog entries', key: 'totalCatalogEntries', icon: 'menu_book', color: '#7c3aed', route: '/catalog' },
+    { label: 'Broken catalog entries', key: 'brokenCatalogEntries', icon: 'report', color: '#dc2626', route: '/catalog' },
   ];
 
   constructor() {
     this.refreshSummary();
-    this.refreshEvents();
+    this.refreshRuns();
 
-    // Refresh summary on relevant signals
-    this.signalR.workflowUpdated$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.refreshSummary());
-    this.signalR.agentUpdated$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.refreshSummary());
-    this.signalR.inputRequested$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.refreshSummary());
-    this.signalR.inputAnswered$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.refreshSummary());
-
-    // Live-prepend events
-    this.signalR.eventLogged$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((evt) => {
-      this.recentEvents.update((list) => [evt, ...list].slice(0, 20));
+    this.signalR.pipelineRunUpdated$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.refreshSummary();
+      this.refreshRuns();
     });
+    this.signalR.stepRunUpdated$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.refreshRuns());
+    this.signalR.approvalRequested$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.refreshSummary();
+      this.refreshRuns();
+    });
+    this.signalR.approvalDecided$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.refreshSummary();
+      this.refreshRuns();
+    });
+    this.signalR.repositoryUpdated$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.refreshSummary());
+    this.signalR.catalogRefreshed$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.refreshSummary());
   }
 
   private refreshSummary(): void {
@@ -84,10 +94,10 @@ export class HomePage {
     });
   }
 
-  private refreshEvents(): void {
-    this.events.list({ limit: 20 }).subscribe({
-      next: (list) => this.recentEvents.set(list),
-      error: (err) => console.error('events failed', err),
+  private refreshRuns(): void {
+    this.pipelineRuns.list().subscribe({
+      next: (list) => this.recentRuns.set(list.slice(0, 10)),
+      error: (err) => console.error('pipeline runs failed', err),
     });
   }
 }

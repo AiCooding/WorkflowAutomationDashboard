@@ -1,0 +1,32 @@
+<div class="spec-viewer">
+  @if (loading()) {
+    <div class="loading-row"><mat-spinner diameter="32"></mat-spinner></div>
+  } @else if (error(); as err) {
+    <div class="spec-error">{{ err }}</div>
+  } @else if (manifest(); as m) {
+    <div class="spec-folder muted">{{ m.folder }}</div>
+    <mat-tab-group animationDuration="0ms" (selectedIndexChange)="onTabSelected($event)">
+      @for (tab of tabs; track tab) {
+        <mat-tab>
+          <ng-template mat-tab-label>
+            <span [class.empty-label]="!exists(tab)">
+              {{ tab[0].toUpperCase() + tab.slice(1) }}
+              @if (!exists(tab)) { <span class="empty-dot" aria-label="not written yet">·</span> }
+            </span>
+          </ng-template>
+          @if (!exists(tab)) {
+            <div class="empty-tab">{{ emptyMessage(tab) }}</div>
+          } @else {
+            @if (state()[tab].loading) {
+              <div class="loading-row"><mat-spinner diameter="24"></mat-spinner></div>
+            } @else if (state()[tab].error; as err) {
+              <div class="spec-error">{{ err }}</div>
+            } @else if (state()[tab].loaded) {
+              <pre class="spec-content">{{ state()[tab].content }}</pre>
+            }
+          }
+        </mat-tab>
+      }
+    </mat-tab-group>
+  }
+</div>

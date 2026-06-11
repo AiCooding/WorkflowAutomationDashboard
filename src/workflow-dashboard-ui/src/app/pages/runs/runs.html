@@ -1,0 +1,162 @@
+<div class="page-header">
+  <h1>Runs</h1>
+  <span class="spacer"></span>
+  <button mat-stroked-button color="warn" (click)="cancelAll()" matTooltip="Cancel all pending, queued and running workflows">
+    <mat-icon>cancel</mat-icon> Cancel all
+  </button>
+  <button mat-icon-button matTooltip="Refresh" (click)="load()">
+    <mat-icon>refresh</mat-icon>
+  </button>
+</div>
+
+<mat-card appearance="outlined" class="filters">
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Status</mat-label>
+    <mat-select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)">
+      <mat-option [value]="''">All</mat-option>
+      @for (s of statuses; track s) {
+        <mat-option [value]="s">{{ s }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Repository</mat-label>
+    <mat-select [ngModel]="repositoryFilter()" (ngModelChange)="repositoryFilter.set($event)">
+      <mat-option [value]="''">All</mat-option>
+      @for (r of repositories(); track r.id) {
+        <mat-option [value]="r.id">{{ r.name }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Feature contains</mat-label>
+    <input matInput [ngModel]="featureFilter()" (ngModelChange)="featureFilter.set($event)" placeholder="auth, billing…" />
+  </mat-form-field>
+
+  <div class="count">{{ filtered().length }} of {{ all().length }}</div>
+</mat-card>
+
+@if (loading()) {
+  <div class="loading-row"><mat-spinner diameter="32"></mat-spinner></div>
+} @else if (filtered().length === 0) {
+  <mat-card appearance="outlined" class="empty">No runs match the current filters.</mat-card>
+} @else {
+  <mat-accordion class="run-list" multi>
+    @for (w of filtered(); track w.id) {
+      <mat-expansion-panel (opened)="onPanelOpened(w)" (closed)="onPanelClosed(w)">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon [style.color]="styles.workflow(w.status).color">
+              {{ styles.workflow(w.status).icon }}
+            </mat-icon>
+            <!-- Type: resolved display name with fallback to slug -->
+            <span class="run-type" [matTooltip]="w.catalogSlug">{{ typeLabel(w) }}</span>
+            <!-- Definition-missing indicator -->
+            @if (definitionMissing(w)) {
+              <span class="chip chip-warning"
+                    [matTooltip]="'Workflow definition \'' + w.catalogSlug + '\' no longer in catalog'">
+                <mat-icon class="chip-icon">warning</mat-icon>definition missing
+              </span>
+            }
+            <span class="run-id" [matTooltip]="w.id">{{ shortId(w.id) }}</span>
+          </mat-panel-title>
+          <mat-panel-description>
+            <span class="status-pill"
+                  [matTooltip]="w.status === 'queued' ? (w.queueReason || '') : (w.status === 'broken' ? (w.brokenReason || '') : '')"
+                  [style.background]="styles.workflow(w.status).color + '20'"
+                  [style.color]="styles.workflow(w.status).color">{{ w.status }}</span>
+            @if (w.status === 'queued' && w.queueReason) {
+              <span class="reason queue-reason">· {{ w.queueReason }}</span>
+            }
+            @if (w.status === 'broken' && w.brokenReason) {
+              <span class="reason broken-reason">· {{ w.brokenReason }}</span>
+            }
+            <span class="meta">
+              {{ featureLabel(w) }} · {{ repoLabel(w) }} · {{ duration(w) }} · {{ w.createdAt | date: 'short' }}
+            </span>
+          </mat-panel-description>
+        </mat-expansion-panel-header>
+
+        <div class="panel-body">
+          <div class="info-grid">
+            <!-- Repository row with click-through -->
+            <div>
+              <span class="label">Repository</span>
+              @if (w.repositoryId) {
+                <a class="chip chip-neutral"
+                   [routerLink]="['/repositories']"
+                   [queryParams]="{ id: w.repositoryId }"
+                   [matTooltip]="w.repositoryPath || w.repositoryId">
+                  <mat-icon class="chip-icon">folder</mat-icon>
+                  {{ repoLabel(w) }}
+                </a>
+              } @else {
+                <span>—</span>
+              }
+            </div>
+
+            <!-- Feature row with click-through -->
+            <div>
+              <span class="label">Feature</span>
+              @if (w.featureId) {
+                <a class="chip chip-neutral"
+                   [routerLink]="['/features']"
+                   [queryParams]="{ id: w.featureId }"
+                   [matTooltip]="w.featureId">
+                  <mat-icon class="chip-icon">article</mat-icon>
+                  {{ featureLabel(w) }}
+                </a>
+              } @else {
+                <span>—</span>
+              }
+            </div>
+
+            <!-- Type with definition-missing warning in body -->
+            <div>
+              <span class="label">Type</span>
+              <span [matTooltip]="w.catalogSlug">{{ typeLabel(w) }}</span>
+            </div>
+
+            <div><span class="label">PID</span><span>{{ w.processId ?? '—' }}</span></div>
+            <div><span class="label">Started</span><span>{{ w.startedAt ? (w.startedAt | date: 'short') : '—' }}</span></div>
+            <div><span class="label">Completed</span><span>{{ w.completedAt ? (w.completedAt | date: 'short') : '—' }}</span></div>
+            @if (w.errorMessage) {
+              <div class="error"><span class="label">Error</span><pre class="error-text">{{ w.errorMessage }}</pre></div>
+            }
+            @if (w.brokenReason) {
+              <div class="error"><span class="label">Broken reason</span><pre class="error-text">{{ w.brokenReason }}</pre></div>
+            }
+            @if (w.queueReason) {
+              <div><span class="label">Queue reason</span><span>{{ w.queueReason }}</span></div>
+            }
+          </div>
+
+          <h4>Logs</h4>
+          <div class="log-panel">
+            @if (logsFor(w.id).length === 0) {
+              <div class="empty-inline">No log output yet.</div>
+            } @else {
+              <pre class="log-pre">@for (l of logsFor(w.id); track $index) {<span class="log-line" [class.stderr]="l.stream === 'stderr'">[{{ l.stream }}] {{ l.line }}
+</span>}</pre>
+            }
+          </div>
+
+          <div class="actions">
+            @if (cancellable(w)) {
+              <button mat-stroked-button color="warn" (click)="cancel(w)">
+                <mat-icon>cancel</mat-icon> Cancel
+              </button>
+            }
+            @if (requeueable(w)) {
+              <button mat-stroked-button color="primary" (click)="requeue(w)" matTooltip="Re-validate the workflow and put it back in the queue">
+                <mat-icon>replay</mat-icon> Re-queue
+              </button>
+            }
+          </div>
+        </div>
+      </mat-expansion-panel>
+    }
+  </mat-accordion>
+}

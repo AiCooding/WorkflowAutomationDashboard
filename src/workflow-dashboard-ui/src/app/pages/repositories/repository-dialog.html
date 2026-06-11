@@ -1,0 +1,54 @@
+<h2 mat-dialog-title>{{ title }}</h2>
+
+<mat-dialog-content class="dialog-body">
+  @if (highlightPath) {
+    <div class="broken-banner">
+      <mat-icon>error_outline</mat-icon>
+      <span>
+        This repository's path no longer exists on disk. Update the path to point at a
+        valid directory to clear the broken state.
+      </span>
+    </div>
+  }
+
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>Name</mat-label>
+    <input
+      matInput
+      [ngModel]="name()"
+      (ngModelChange)="name.set($event)"
+      placeholder="Defaults to directory name"
+      [disabled]="busy()"
+    />
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>Local filesystem path</mat-label>
+    <input
+      matInput
+      [ngModel]="path()"
+      (ngModelChange)="path.set($event)"
+      placeholder="C:\path\to\repo"
+      [required]="mode === 'add'"
+      [disabled]="busy()"
+    />
+  </mat-form-field>
+
+  @if (errorMessage(); as msg) {
+    <div class="error-banner">
+      <mat-icon>error</mat-icon>
+      <span>{{ msg }}</span>
+    </div>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="cancel()" [disabled]="busy()">Cancel</button>
+  <button mat-flat-button color="primary" (click)="submit()" [disabled]="busy()">
+    @if (busy()) {
+      <mat-spinner diameter="18"></mat-spinner>
+    } @else {
+      {{ submitLabel }}
+    }
+  </button>
+</mat-dialog-actions>

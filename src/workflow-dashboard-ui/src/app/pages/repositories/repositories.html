@@ -1,0 +1,86 @@
+<div class="page-header">
+  <h1>Repositories</h1>
+  <button mat-flat-button color="primary" (click)="openAddDialog()">
+    <mat-icon>add</mat-icon>
+    Add repository
+  </button>
+</div>
+
+<mat-card appearance="outlined" class="table-card">
+  @if (loading()) {
+    <div class="loading-row">
+      <mat-spinner diameter="32"></mat-spinner>
+    </div>
+  } @else if (repositories().length === 0) {
+    <div class="empty">
+      No repositories registered yet. Click <strong>Add repository</strong> to register one.
+    </div>
+  } @else {
+    <table mat-table [dataSource]="repositories()" class="mat-elevation-z0">
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef>Name</th>
+        <td mat-cell *matCellDef="let r">
+          <div class="name-cell">
+            <strong>{{ r.name }}</strong>
+            <span class="muted">{{ r.id }}</span>
+          </div>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="path">
+        <th mat-header-cell *matHeaderCellDef>Path</th>
+        <td mat-cell *matCellDef="let r">
+          <span class="path" [class.broken-path]="r.isBroken">{{ r.path }}</span>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="features">
+        <th mat-header-cell *matHeaderCellDef>Features</th>
+        <td mat-cell *matCellDef="let r">{{ r.featureCount }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let r">
+          @if (r.isBroken) {
+            <mat-chip class="chip-broken" matTooltip="Path does not exist on disk">
+              <mat-icon matChipAvatar>error</mat-icon>
+              Broken
+            </mat-chip>
+          } @else {
+            <mat-chip class="chip-ok">
+              <mat-icon matChipAvatar>check_circle</mat-icon>
+              OK
+            </mat-chip>
+          }
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="updatedAt">
+        <th mat-header-cell *matHeaderCellDef>Updated</th>
+        <td mat-cell *matCellDef="let r">{{ r.updatedAt | date: 'short' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef></th>
+        <td mat-cell *matCellDef="let r">
+          @if (r.isBroken) {
+            <button mat-stroked-button color="warn" (click)="openRepairDialog(r)">
+              <mat-icon>build</mat-icon>
+              Edit path
+            </button>
+          }
+          <button mat-icon-button matTooltip="Edit" (click)="openEditDialog(r)">
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button mat-icon-button matTooltip="Remove" (click)="remove(r)">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="columns"></tr>
+      <tr mat-row *matRowDef="let row; columns: columns" [class.broken-row]="row.isBroken"></tr>
+    </table>
+  }
+</mat-card>

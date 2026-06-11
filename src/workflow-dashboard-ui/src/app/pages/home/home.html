@@ -1,25 +1,41 @@
 <div class="page-header">
   <h1>Dashboard</h1>
-  <a mat-flat-button color="primary" routerLink="/control">
+  <a mat-flat-button color="primary" routerLink="/pipelines/designer">
     <mat-icon>add</mat-icon>
-    New workflow
+    New pipeline
   </a>
 </div>
 
 @if (summary(); as s) {
   <div class="cards-grid">
     @for (card of cards; track card.key) {
-      <mat-card class="summary-card" appearance="outlined">
-        <div class="card-content">
-          <div class="card-icon" [style.background-color]="card.color + '20'" [style.color]="card.color">
-            <mat-icon>{{ card.icon }}</mat-icon>
+      @if (card.route) {
+        <a class="summary-card-link" [routerLink]="card.route">
+          <mat-card class="summary-card summary-card-clickable" appearance="outlined">
+            <div class="card-content">
+              <div class="card-icon" [style.background-color]="card.color + '20'" [style.color]="card.color">
+                <mat-icon>{{ card.icon }}</mat-icon>
+              </div>
+              <div class="card-body">
+                <div class="card-value">{{ s[card.key] }}</div>
+                <div class="card-label">{{ card.label }}</div>
+              </div>
+            </div>
+          </mat-card>
+        </a>
+      } @else {
+        <mat-card class="summary-card" appearance="outlined">
+          <div class="card-content">
+            <div class="card-icon" [style.background-color]="card.color + '20'" [style.color]="card.color">
+              <mat-icon>{{ card.icon }}</mat-icon>
+            </div>
+            <div class="card-body">
+              <div class="card-value">{{ s[card.key] }}</div>
+              <div class="card-label">{{ card.label }}</div>
+            </div>
           </div>
-          <div class="card-body">
-            <div class="card-value">{{ s[card.key] }}</div>
-            <div class="card-label">{{ card.label }}</div>
-          </div>
-        </div>
-      </mat-card>
+        </mat-card>
+      }
     }
   </div>
 } @else {
@@ -29,29 +45,29 @@
 }
 
 <h2 class="section-title">
-  Recent activity
+  Recent pipeline runs
   @if (connected()) {
     <mat-icon class="live-dot" matTooltip="Live">fiber_manual_record</mat-icon>
   }
 </h2>
 
 <mat-card appearance="outlined" class="activity-card">
-  @if (recentEvents().length === 0) {
-    <div class="empty">No events yet.</div>
+  @if (recentRuns().length === 0) {
+    <div class="empty">No pipeline runs yet.</div>
   } @else {
     <mat-list>
-      @for (evt of recentEvents(); track evt.id) {
+      @for (run of recentRuns(); track run.id) {
         <mat-list-item>
           <mat-icon
             matListItemIcon
-            [style.color]="styles.event(evt.eventType).color"
-          >{{ styles.event(evt.eventType).icon }}</mat-icon>
-          <span matListItemTitle>{{ evt.message || evt.eventType }}</span>
+            [style.color]="styles.pipeline(run.status).color"
+          >{{ styles.pipeline(run.status).icon }}</mat-icon>
+          <span matListItemTitle>{{ run.pipelineName || run.pipelineId }}</span>
           <span matListItemLine class="event-meta">
-            {{ evt.eventType }}
-            @if (evt.workflowId) { · workflow {{ evt.workflowId }} }
-            @if (evt.agentId) { · agent {{ evt.agentId }} }
-            · {{ evt.createdAt | date: 'short' }}
+            {{ run.status }}
+            · {{ run.repositoryName || run.repositoryId }}
+            @if (run.featureName) { · {{ run.featureName }} }
+            · {{ run.createdAt | date: 'short' }}
           </span>
         </mat-list-item>
       }

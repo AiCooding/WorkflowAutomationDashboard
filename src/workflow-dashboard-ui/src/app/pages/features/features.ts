@@ -1,10 +1,11 @@
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -14,18 +15,17 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { FeaturesService } from '../../core/api/features.service';
-import { Feature, FeatureSpec, FeatureStatus } from '../../core/models';
+import { RepositoriesService } from '../../core/api/repositories.service';
+import { Feature, FeatureStatus, Repository } from '../../core/models';
+import { SignalRService } from '../../core/realtime/signalr.service';
 import { StatusStyle } from '../../shared/status-style';
+import { NewFeatureDialog } from './new-feature-dialog';
+import { SpecViewer } from './spec-viewer';
 
 const STATUSES: FeatureStatus[] = ['backlog', 'planning', 'in_progress', 'review', 'done', 'cancelled'];
 
-interface NewFeatureForm {
-  id: string;
-  name: string;
-  description: string;
-  status: FeatureStatus;
-  priority: number;
-}
+const ORPHAN_FILTER = '__orphan__';
+const ALL_FILTER = '__all__';
 
 @Component({
   selector: 'app-features',
@@ -43,99 +43,115 @@ interface NewFeatureForm {
     MatSelectModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
+    MatDialogModule,
+    SpecViewer,
   ],
   templateUrl: './features.html',
   styleUrl: './features.scss',
 })
 export class FeaturesPage {
   private readonly featuresApi = inject(FeaturesService);
+  private readonly reposApi = inject(RepositoriesService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
+  private readonly signalR = inject(SignalRService);
   readonly styles = inject(StatusStyle);
 
   readonly statuses = STATUSES;
-  readonly columns = ['name', 'status', 'priority', 'updatedAt', 'actions'];
+  readonly columns = ['name', 'repository', 'status', 'priority', 'updatedAt', 'actions'];
 
   readonly features = signal<Feature[]>([]);
+  readonly repositories = signal<Repository[]>([]);
   readonly loading = signal(true);
-  readonly showCreateForm = signal(false);
-  readonly saving = signal(false);
-
-  readonly newFeature = signal<NewFeatureForm>(this.emptyForm());
-
-  // Spec viewer state
-  readonly viewingSpec = signal<FeatureSpec | null>(null);
   readonly viewingFeatureId = signal<string | null>(null);
-  readonly specLoading = signal(false);
-  readonly specError = signal<string | null>(null);
+  readonly orphanFilter = ORPHAN_FILTER;
+  readonly allFilter = ALL_FILTER;
+  readonly repoFilter = signal<string>(ALL_FILTER);
+
+  readonly visibleFeatures = computed(() => {
+    const filter = this.repoFilter();
+    const all = this.features();
+    if (filter === ALL_FILTER) return all;
+    if (filter === ORPHAN_FILTER) return all.filter((f) => !f.repositoryId);
+    return all.filter((f) => f.repositoryId === filter);
+  });
+
+  readonly repoNameById = computed(() => {
+    const map = new Map<string, string>();
+    for (const r of this.repositories()) map.set(r.id, r.name);
+    return map;
+  });
 
   constructor() {
     this.load();
-  }
 
-  private emptyForm(): NewFeatureForm {
-    return { id: '', name: '', description: '', status: 'backlog', priority: 0 };
+    // Live updates from SignalR — create, update, delete, and orphan flips.
+    this.signalR.featureUpdated$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((f) => this.applyFeatureEvent(f));
+
+    this.signalR.repositoryUpdated$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((r) => {
+        // Keep the filter dropdown in sync; deletions arrive with deleted:true.
+        this.repositories.update((list) => {
+          if (r.deleted) return list.filter((x) => x.id !== r.id);
+          const idx = list.findIndex((x) => x.id === r.id);
+          if (idx === -1) return [r, ...list];
+          const next = list.slice();
+          next[idx] = r;
+          return next;
+        });
+      });
   }
 
   private load(): void {
     this.loading.set(true);
-    this.featuresApi
-      .list()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (list) => {
-          this.features.set(list);
-          this.loading.set(false);
-        },
-        error: () => {
-          this.loading.set(false);
-          this.snackBar.open('Failed to load features', 'Dismiss', { duration: 3000 });
-        },
-      });
+    this.featuresApi.list().subscribe({
+      next: (list) => {
+        this.features.set(list);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        this.snackBar.open('Failed to load features', 'Dismiss', { duration: 3000 });
+      },
+    });
+    this.reposApi.list().subscribe({
+      next: (list) => this.repositories.set(list),
+      error: () => undefined,
+    });
   }
 
-  toggleCreate(): void {
-    this.showCreateForm.update((v) => !v);
-    if (!this.showCreateForm()) this.newFeature.set(this.emptyForm());
+  private applyFeatureEvent(f: Feature): void {
+    this.features.update((list) => {
+      if (f.deleted) return list.filter((x) => x.id !== f.id);
+      const idx = list.findIndex((x) => x.id === f.id);
+      if (idx === -1) return [f, ...list];
+      const next = list.slice();
+      next[idx] = f;
+      return next;
+    });
+    if (f.deleted && this.viewingFeatureId() === f.id) this.viewingFeatureId.set(null);
   }
 
-  saveNew(): void {
-    const form = this.newFeature();
-    if (!form.name.trim()) {
-      this.snackBar.open('Name is required', 'Dismiss', { duration: 2500 });
-      return;
-    }
-    this.saving.set(true);
-    this.featuresApi
-      .create({
-        id: form.id.trim() || undefined,
-        name: form.name.trim(),
-        description: form.description.trim() || null,
-        status: form.status,
-        priority: form.priority,
-      })
-      .subscribe({
-        next: (created) => {
-          this.features.update((list) => [created, ...list]);
-          this.saving.set(false);
-          this.showCreateForm.set(false);
-          this.newFeature.set(this.emptyForm());
-          this.snackBar.open('Feature created', 'Dismiss', { duration: 2000 });
-        },
-        error: (err) => {
-          this.saving.set(false);
-          this.snackBar.open('Create failed: ' + (err?.message || 'unknown'), 'Dismiss', { duration: 4000 });
-        },
-      });
+  openNewFeatureDialog(): void {
+    const ref = this.dialog.open<NewFeatureDialog, void, Feature | null>(NewFeatureDialog, {
+      width: '720px',
+      autoFocus: 'first-tabbable',
+    });
+    ref.afterClosed().subscribe((created) => {
+      if (!created) return;
+      this.applyFeatureEvent(created);
+      this.snackBar.open(`Feature created — ${created.name}`, 'Dismiss', { duration: 2500 });
+    });
   }
 
   updateStatus(feature: Feature, status: FeatureStatus): void {
     if (feature.status === status) return;
-    const updated = { ...feature, status };
-    this.featuresApi.update(feature.id, updated).subscribe({
-      next: (saved) => {
-        this.features.update((list) => list.map((f) => (f.id === saved.id ? saved : f)));
-      },
+    this.featuresApi.update(feature.id, { status }).subscribe({
+      next: (saved) => this.applyFeatureEvent(saved),
       error: () => this.snackBar.open('Update failed', 'Dismiss', { duration: 3000 }),
     });
   }
@@ -144,8 +160,7 @@ export class FeaturesPage {
     if (!confirm(`Delete feature "${feature.name}"?`)) return;
     this.featuresApi.delete(feature.id).subscribe({
       next: () => {
-        this.features.update((list) => list.filter((f) => f.id !== feature.id));
-        if (this.viewingFeatureId() === feature.id) this.closeSpec();
+        this.applyFeatureEvent({ ...feature, deleted: true });
         this.snackBar.open('Feature deleted', 'Dismiss', { duration: 2000 });
       },
       error: () => this.snackBar.open('Delete failed', 'Dismiss', { duration: 3000 }),
@@ -154,33 +169,18 @@ export class FeaturesPage {
 
   viewSpec(feature: Feature): void {
     if (this.viewingFeatureId() === feature.id) {
-      this.closeSpec();
+      this.viewingFeatureId.set(null);
       return;
     }
     this.viewingFeatureId.set(feature.id);
-    this.viewingSpec.set(null);
-    this.specLoading.set(true);
-    this.specError.set(null);
-
-    this.featuresApi.getSpec(feature.id).subscribe({
-      next: (spec) => {
-        this.viewingSpec.set(spec);
-        this.specLoading.set(false);
-      },
-      error: (err) => {
-        this.specLoading.set(false);
-        this.specError.set(err?.error?.message || err?.message || 'Failed to load spec');
-      },
-    });
   }
 
   closeSpec(): void {
     this.viewingFeatureId.set(null);
-    this.viewingSpec.set(null);
-    this.specError.set(null);
   }
 
-  updateForm<K extends keyof NewFeatureForm>(key: K, value: NewFeatureForm[K]): void {
-    this.newFeature.update((f) => ({ ...f, [key]: value }));
+  repoName(id?: string | null): string {
+    if (!id) return '—';
+    return this.repoNameById().get(id) ?? id;
   }
 }

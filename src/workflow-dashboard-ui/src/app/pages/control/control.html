@@ -1,162 +1,65 @@
 <div class="page-header">
-  <h1>Control panel</h1>
+  <h1>Control</h1>
 </div>
-
-<mat-card appearance="outlined" class="draft-card">
-  <div class="draft-header">
-    <mat-icon class="draft-icon">edit_note</mat-icon>
-    <div>
-      <h3>Draft a feature with the PM agent</h3>
-      <p class="muted-text">
-        Start a dialog with the PM agent to turn a rough idea into a finalised feature description.
-        The PM agent will ask follow-up questions; answer them in the
-        <a routerLink="/inputs">Input requests</a> view. When you approve, the spec is saved as
-        <code>docs/features/&lt;id&gt;.md</code> and the new feature appears in the dashboard.
-      </p>
-    </div>
-  </div>
-
-  <div class="draft-form">
-    <mat-form-field appearance="outline">
-      <mat-label>Working name (optional)</mat-label>
-      <input
-        matInput
-        [ngModel]="draft().name"
-        (ngModelChange)="updateDraft('name', $event)"
-        placeholder="e.g. user-auth"
-      />
-    </mat-form-field>
-
-    <mat-form-field appearance="outline" class="full-width">
-      <mat-label>What do you want to build?</mat-label>
-      <textarea
-        matInput
-        rows="4"
-        [ngModel]="draft().description"
-        (ngModelChange)="updateDraft('description', $event)"
-        placeholder="A few sentences in your own words. The PM agent will ask follow-ups to fill in the details."
-      ></textarea>
-    </mat-form-field>
-  </div>
-
-  <div class="form-actions">
-    <button mat-flat-button color="primary" (click)="startDraft()" [disabled]="drafting()">
-      @if (drafting()) {
-        <mat-spinner diameter="18"></mat-spinner>
-      } @else {
-        <mat-icon>auto_awesome</mat-icon>
-      }
-      Start drafting
-    </button>
-  </div>
-</mat-card>
 
 <div class="grid">
-  <mat-card appearance="outlined" class="start-card">
-    <h3>Start a workflow</h3>
-    <div class="form">
-      <mat-form-field appearance="outline">
-        <mat-label>Type</mat-label>
-        <mat-select [ngModel]="form().type" (ngModelChange)="updateForm('type', $event)">
-          @for (t of workflowTypes; track t) {
-            <mat-option [value]="t">{{ t }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>Feature (optional)</mat-label>
-        <mat-select [ngModel]="form().featureId" (ngModelChange)="updateForm('featureId', $event)">
-          <mat-option [value]="''">— None —</mat-option>
-          @for (f of features(); track f.id) {
-            <mat-option [value]="f.id">{{ f.name }} ({{ f.id }})</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" class="full-width">
-        <mat-label>Start payload (JSON, optional)</mat-label>
-        <textarea
-          matInput
-          rows="4"
-          [ngModel]="form().payload"
-          (ngModelChange)="updateForm('payload', $event)"
-          placeholder='{"branch": "main"}'
-        ></textarea>
-      </mat-form-field>
+  <mat-card appearance="outlined">
+    <div class="card-header">
+      <mat-icon>account_tree</mat-icon>
+      <div>
+        <h3>Design pipelines</h3>
+        <p>Create or edit reusable multi-step orchestration flows.</p>
+      </div>
     </div>
-
-    <div class="form-actions">
-      <button mat-flat-button color="primary" (click)="start()" [disabled]="starting()">
-        @if (starting()) {
-          <mat-spinner diameter="18"></mat-spinner>
-        } @else {
-          <mat-icon>play_arrow</mat-icon>
-        }
-        Start workflow
-      </button>
+    <div class="chips">
+      <mat-chip>{{ summary()?.totalPipelines ?? 0 }} defined</mat-chip>
+    </div>
+    <div class="actions">
+      <a mat-flat-button color="primary" routerLink="/pipelines/designer">
+        <mat-icon>add</mat-icon>
+        Open designer
+      </a>
     </div>
   </mat-card>
 
-  <mat-card appearance="outlined" class="bulk-card">
-    <h3>Bulk actions</h3>
-    <p class="muted">
-      Targets {{ runningWorkflows().length }} currently running workflow(s).
-    </p>
-    <div class="bulk-actions">
-      <button
-        mat-stroked-button
-        color="warn"
-        (click)="bulk('cancel')"
-        [disabled]="bulkBusy() || runningWorkflows().length === 0"
-      >
-        <mat-icon>cancel</mat-icon> Cancel all running
-      </button>
-      <button
-        mat-stroked-button
-        (click)="bulk('pause')"
-        [disabled]="bulkBusy() || runningWorkflows().length === 0"
-      >
-        <mat-icon>pause</mat-icon> Pause all running
-      </button>
+  <mat-card appearance="outlined">
+    <div class="card-header">
+      <mat-icon>play_circle</mat-icon>
+      <div>
+        <h3>Run and monitor</h3>
+        <p>Launch pipelines, inspect step progress, and review live approvals.</p>
+      </div>
+    </div>
+    <div class="chips">
+      <mat-chip color="primary">{{ summary()?.runningPipelineRuns ?? 0 }} running</mat-chip>
+      <mat-chip color="warn">{{ summary()?.waitingApprovalRuns ?? 0 }} waiting approval</mat-chip>
+      <mat-chip>{{ summary()?.pendingApprovals ?? 0 }} pending approvals</mat-chip>
+    </div>
+    <div class="actions">
+      <a mat-flat-button color="primary" routerLink="/pipelines">
+        <mat-icon>visibility</mat-icon>
+        Open pipelines
+      </a>
+    </div>
+  </mat-card>
+
+  <mat-card appearance="outlined">
+    <div class="card-header">
+      <mat-icon>smart_toy</mat-icon>
+      <div>
+        <h3>Catalog and agents</h3>
+        <p>Review available agent definitions before wiring them into a pipeline step.</p>
+      </div>
+    </div>
+    <div class="actions dual">
+      <a mat-stroked-button routerLink="/catalog">
+        <mat-icon>menu_book</mat-icon>
+        Catalog
+      </a>
+      <a mat-stroked-button routerLink="/agents">
+        <mat-icon>smart_toy</mat-icon>
+        Agents
+      </a>
     </div>
   </mat-card>
 </div>
-
-<h2 class="section-title">Recent commands</h2>
-
-<mat-card appearance="outlined" class="commands-card">
-  @if (recentCommands().length === 0) {
-    <div class="empty">No commands issued yet.</div>
-  } @else {
-    <table mat-table [dataSource]="recentCommands()" class="mat-elevation-z0">
-      <ng-container matColumnDef="commandType">
-        <th mat-header-cell *matHeaderCellDef>Command</th>
-        <td mat-cell *matCellDef="let c"><strong>{{ c.commandType }}</strong></td>
-      </ng-container>
-
-      <ng-container matColumnDef="workflowId">
-        <th mat-header-cell *matHeaderCellDef>Workflow</th>
-        <td mat-cell *matCellDef="let c" class="muted">{{ c.workflowId || '—' }}</td>
-      </ng-container>
-
-      <ng-container matColumnDef="status">
-        <th mat-header-cell *matHeaderCellDef>Status</th>
-        <td mat-cell *matCellDef="let c">{{ c.status }}</td>
-      </ng-container>
-
-      <ng-container matColumnDef="createdAt">
-        <th mat-header-cell *matHeaderCellDef>Issued</th>
-        <td mat-cell *matCellDef="let c">{{ c.createdAt | date: 'short' }}</td>
-      </ng-container>
-
-      <ng-container matColumnDef="processedAt">
-        <th mat-header-cell *matHeaderCellDef>Processed</th>
-        <td mat-cell *matCellDef="let c">{{ c.processedAt ? (c.processedAt | date: 'short') : '—' }}</td>
-      </ng-container>
-
-      <tr mat-header-row *matHeaderRowDef="commandColumns"></tr>
-      <tr mat-row *matRowDef="let row; columns: commandColumns"></tr>
-    </table>
-  }
-</mat-card>

@@ -1,24 +1,42 @@
 using Microsoft.EntityFrameworkCore;
 using WorkflowDashboard.Api.Data;
 using WorkflowDashboard.Api.Hubs;
-using WorkflowDashboard.Api.Services;
+using WorkflowDashboard.Api.Services.AgentRunner;
+using WorkflowDashboard.Api.Services.Catalog;
+using WorkflowDashboard.Api.Services.Pipeline;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Database
 builder.Services.AddDbContext<WorkflowDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("WorkflowDb")));
 
-// Controllers
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(o =>
+{
+    o.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+});
 
-// SignalR
-builder.Services.AddSignalR();
+builder.Services.AddSignalR().AddJsonProtocol(o =>
+{
+    o.PayloadSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+});
 
-// Background polling service
-builder.Services.AddHostedService<PollingService>();
+builder.Services.Configure<CatalogOptions>(builder.Configuration.GetSection(CatalogOptions.SectionName));
+builder.Services.AddSingleton<ICatalogStore, CatalogStore>();
+builder.Services.AddSingleton<MarkdownRenderer>();
+builder.Services.AddScoped<CatalogScanner>();
+builder.Services.AddSingleton<CatalogStartupScanner>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<CatalogStartupScanner>());
 
-// CORS (allow Angular dev server)
+builder.Services.Configure<AgentRunnerOptions>(builder.Configuration.GetSection(AgentRunnerOptions.SectionName));
+builder.Services.AddSingleton<IProcessLauncher, ProcessLauncher>();
+builder.Services.AddSingleton<InstructionsInjector>();
+builder.Services.AddSingleton<WorkflowInputWriter>();
+builder.Services.AddSingleton<PipelineOrchestrator>();
+builder.Services.AddSingleton<IPipelineOrchestrator>(sp => sp.GetRequiredService<PipelineOrchestrator>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<PipelineOrchestrator>());
+
+builder.Services.AddScoped<PipelineRunProjector>();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngularDev", policy =>
@@ -30,14 +48,12 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Auto-migrate database on startup
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<WorkflowDbContext>();
-    db.Database.EnsureCreated();
+    db.Database.Migrate();
 }
 
-// Middleware
 app.UseCors("AllowAngularDev");
 app.UseDefaultFiles();
 app.UseStaticFiles();

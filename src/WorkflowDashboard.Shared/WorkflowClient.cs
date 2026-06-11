@@ -1,9 +1,22 @@
 using System.Net.Http.Json;
+using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace WorkflowDashboard.Shared;
 
 /// <summary>
-/// HTTP client for agents to report state to the Workflow Dashboard API.
+/// Slim HTTP client for PM workflows and other agents to communicate with the
+/// Workflow Dashboard API.
+///
+/// Surface (Phase 7):
+///   • <see cref="CreateFeatureWithSpecAsync"/> — called by the PM workflow when the user approves the draft.
+///   • <see cref="RequestInputAsync"/>          — ask the user a question; returns the request ID.
+///   • <see cref="PollForAnswerAsync"/>         — wait up to 5 minutes for the user's answer.
+///   • <see cref="LogEventAsync"/>              — emit a structured event to the dashboard.
+///
+/// Legacy methods (<c>PollCommands</c>, <c>MarkCommandProcessed</c>, <c>RegisterAgent</c>,
+/// <c>UpdateAgentStatus</c>, <c>UpdateWorkflowStatus</c>) are deleted; use the runner's
+/// injected-instructions mechanism instead (see §1.7 of the architecture plan).
 /// </summary>
 public class WorkflowClient
 {
@@ -19,132 +32,142 @@ public class WorkflowClient
         _http = new HttpClient { BaseAddress = new Uri(baseUrl) };
     }
 
-    // Agent operations
-    public async Task<AgentDto> RegisterAgent(string workflowId, string agentType, string? sessionId = null)
+    // -------------------------------------------------------------------------
+    // Features
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Called by the PM workflow on approval. Creates a feature with an inline spec body.
+    /// Maps to <c>POST /api/features</c> with <c>mode:"inline"</c> and an optional
+    /// <c>?workflowId=</c> query parameter that links the originating workflow.
+    /// </summary>
+    public async Task<FeatureDto> CreateFeatureWithSpecAsync(
+        string repositoryId,
+        string name,
+        string description,
+        string specSlug,
+        string proposalMarkdownBody,
+        string? workflowId = null)
     {
-        var agent = new AgentDto
+        var url = workflowId is not null
+            ? $"/api/features?workflowId={Uri.EscapeDataString(workflowId)}"
+            : "/api/features";
+
+        var body = new
         {
-            WorkflowId = workflowId,
-            AgentType = agentType,
-            SessionId = sessionId
+            repositoryId,
+            name,
+            description,
+            mode = "inline",
+            specSlug,
+            specBody = proposalMarkdownBody,
         };
 
-        var response = await _http.PostAsJsonAsync("/api/agents", agent);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<AgentDto>())!;
-    }
-
-    public async Task UpdateAgentStatus(string agentId, string status, string? currentTask = null)
-    {
-        var update = new { Status = status, CurrentTask = currentTask };
-        var response = await _http.PutAsJsonAsync($"/api/agents/{agentId}", update);
-        response.EnsureSuccessStatusCode();
-    }
-
-    // Workflow operations
-    public async Task<WorkflowDto> CreateWorkflow(string type, string? featureId = null)
-    {
-        var workflow = new WorkflowDto { Type = type, FeatureId = featureId };
-        var response = await _http.PostAsJsonAsync("/api/workflows", workflow);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<WorkflowDto>())!;
-    }
-
-    public async Task UpdateWorkflowStatus(string workflowId, string status, string? errorMessage = null, string? featureId = null)
-    {
-        var update = new { Status = status, ErrorMessage = errorMessage, FeatureId = featureId };
-        var response = await _http.PutAsJsonAsync($"/api/workflows/{workflowId}/status", update);
-        response.EnsureSuccessStatusCode();
-    }
-
-    // Features
-    public async Task<FeatureDto> CreateFeature(string name, string? description = null, string status = "planning", int priority = 0)
-    {
-        var feature = new FeatureDto { Name = name, Description = description, Status = status, Priority = priority };
-        var response = await _http.PostAsJsonAsync("/api/features", feature);
+        var response = await _http.PostAsJsonAsync(url, body);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<FeatureDto>())!;
     }
 
-    /// <summary>
-    /// Persists the markdown spec for a feature. The dashboard writes the file to its configured spec root
-    /// (defaults to docs/features) and updates Feature.SpecPath.
-    /// </summary>
-    public async Task<FeatureSpecDto> SaveFeatureSpec(string featureId, string content, string? fileName = null)
-    {
-        var body = new { Content = content, FileName = fileName };
-        var response = await _http.PostAsJsonAsync($"/api/features/{featureId}/spec", body);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<FeatureSpecDto>())!;
-    }
-
+    // -------------------------------------------------------------------------
     // Input requests
-    public async Task<InputRequestDto> RequestInput(string workflowId, string agentId, string question, string[]? options = null)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Posts an input request to the dashboard and returns the new request ID.
+    /// Maps to <c>POST /api/input-requests</c>.
+    /// Use <see cref="PollForAnswerAsync"/> with the returned ID to wait for the answer.
+    /// </summary>
+    public async Task<string> RequestInputAsync(
+        string workflowId,
+        string question,
+        string[]? options = null)
     {
-        var request = new InputRequestDto
+        var body = new
         {
-            WorkflowId = workflowId,
-            AgentId = agentId,
-            Question = question,
-            OptionsJson = options is not null ? System.Text.Json.JsonSerializer.Serialize(options) : null
+            workflowId,
+            agentId = string.Empty,
+            question,
+            optionsJson = options is not null ? JsonSerializer.Serialize(options) : null,
         };
 
-        var response = await _http.PostAsJsonAsync("/api/input-requests", request);
+        var response = await _http.PostAsJsonAsync("/api/input-requests", body);
         response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<InputRequestDto>())!;
+        var result = (await response.Content.ReadFromJsonAsync<InputRequestDto>())!;
+        return result.Id;
     }
 
-    public async Task<InputRequestDto?> PollForAnswer(string inputRequestId)
+    /// <summary>
+    /// Polls <c>GET /api/input-requests/{inputRequestId}</c> every 2 seconds until
+    /// <c>status == "answered"</c>. Throws <see cref="TimeoutException"/> after 5 minutes.
+    /// </summary>
+    public async Task<string> PollForAnswerAsync(string workflowId, string inputRequestId)
     {
-        var response = await _http.GetFromJsonAsync<InputRequestDto>($"/api/input-requests/{inputRequestId}");
-        return response?.Status == "answered" ? response : null;
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+        while (!cts.IsCancellationRequested)
+        {
+            try
+            {
+                var dto = await _http.GetFromJsonAsync<InputRequestDto>(
+                    $"/api/input-requests/{inputRequestId}", cts.Token);
+
+                if (dto?.Status == "answered" && dto.Response is not null)
+                    return dto.Response;
+
+                await Task.Delay(TimeSpan.FromSeconds(2), cts.Token);
+            }
+            catch (OperationCanceledException) when (cts.IsCancellationRequested)
+            {
+                break;
+            }
+        }
+        throw new TimeoutException(
+            $"No answer received for input request '{inputRequestId}' within 5 minutes.");
     }
 
+    // -------------------------------------------------------------------------
     // Events
-    public async Task LogEvent(string? workflowId, string? agentId, string eventType, string message)
-    {
-        var evt = new { WorkflowId = workflowId, AgentId = agentId, EventType = eventType, Message = message };
-        await _http.PostAsJsonAsync("/api/events", evt);
-    }
+    // -------------------------------------------------------------------------
 
-    // Commands
-    public async Task<List<CommandDto>> PollCommands()
+    /// <summary>
+    /// Logs a structured event to the workflow event stream.
+    /// Maps to <c>POST /api/events</c>.
+    /// </summary>
+    public async Task LogEventAsync(
+        string workflowId,
+        string eventType,
+        string message,
+        object? metadata = null)
     {
-        return await _http.GetFromJsonAsync<List<CommandDto>>("/api/commands?status=pending") ?? [];
-    }
-
-    public async Task MarkCommandProcessed(string commandId, string status)
-    {
-        var update = new { Status = status };
-        await _http.PutAsJsonAsync($"/api/commands/{commandId}", update);
+        var body = new
+        {
+            workflowId,
+            eventType,
+            message,
+            metadataJson = metadata is not null ? JsonSerializer.Serialize(metadata) : null,
+        };
+        await _http.PostAsJsonAsync("/api/events", body);
     }
 }
 
+// -------------------------------------------------------------------------
 // DTOs
-public class AgentDto
-{
-    public string Id { get; set; } = string.Empty;
-    public string WorkflowId { get; set; } = string.Empty;
-    public string AgentType { get; set; } = string.Empty;
-    public string Status { get; set; } = "idle";
-    public string? CurrentTask { get; set; }
-    public string? SessionId { get; set; }
-    public DateTime? StartedAt { get; set; }
-    public DateTime? CompletedAt { get; set; }
-}
+// -------------------------------------------------------------------------
 
-public class WorkflowDto
+/// <summary>Feature returned by <see cref="WorkflowClient.CreateFeatureWithSpecAsync"/>.</summary>
+public class FeatureDto
 {
     public string Id { get; set; } = string.Empty;
-    public string? FeatureId { get; set; }
-    public string Type { get; set; } = string.Empty;
-    public string Status { get; set; } = "pending";
-    public DateTime? StartedAt { get; set; }
-    public DateTime? CompletedAt { get; set; }
-    public string? ErrorMessage { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string Status { get; set; } = "backlog";
+    public int Priority { get; set; }
+    public string? SpecFolder { get; set; }
+    public string? RepositoryId { get; set; }
     public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
 }
 
+/// <summary>Input-request DTO for <see cref="WorkflowClient.RequestInputAsync"/> and polling.</summary>
 public class InputRequestDto
 {
     public string Id { get; set; } = string.Empty;
@@ -158,33 +181,25 @@ public class InputRequestDto
     public DateTime? AnsweredAt { get; set; }
 }
 
-public class CommandDto
-{
-    public string Id { get; set; } = string.Empty;
-    public string? WorkflowId { get; set; }
-    public string CommandType { get; set; } = string.Empty;
-    public string? PayloadJson { get; set; }
-    public string Status { get; set; } = "pending";
-    public DateTime CreatedAt { get; set; }
-    public DateTime? ProcessedAt { get; set; }
-}
+// -------------------------------------------------------------------------
+// DI registration
+// -------------------------------------------------------------------------
 
-public class FeatureDto
+/// <summary>DI registration helpers for <see cref="WorkflowClient"/>.</summary>
+public static class WorkflowClientExtensions
 {
-    public string Id { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public string Status { get; set; } = "backlog";
-    public int Priority { get; set; }
-    public string? SpecPath { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime UpdatedAt { get; set; }
-}
-
-public class FeatureSpecDto
-{
-    public string FeatureId { get; set; } = string.Empty;
-    public string SpecPath { get; set; } = string.Empty;
-    public string Content { get; set; } = string.Empty;
-    public string FullPath { get; set; } = string.Empty;
+    /// <summary>
+    /// Registers a named <see cref="HttpClient"/> for <see cref="WorkflowClient"/>
+    /// and adds <see cref="WorkflowClient"/> as a typed transient service.
+    /// </summary>
+    public static IServiceCollection AddWorkflowClient(
+        this IServiceCollection services,
+        string baseUrl)
+    {
+        services.AddHttpClient<WorkflowClient>(client =>
+        {
+            client.BaseAddress = new Uri(baseUrl);
+        });
+        return services;
+    }
 }

@@ -16,7 +16,7 @@ import { SignalRService } from '../../core/realtime/signalr.service';
 import { StatusStyle } from '../../shared/status-style';
 
 const TYPES: EventType[] = [
-  'state_change', 'log', 'error', 'input_requested', 'command_received',
+  'state_change', 'log', 'error', 'input_requested',
 ];
 
 @Component({

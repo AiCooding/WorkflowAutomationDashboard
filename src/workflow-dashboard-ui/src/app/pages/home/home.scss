@@ -26,6 +26,22 @@
   padding: 16px;
 }
 
+.summary-card-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.summary-card-clickable {
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  }
+}
+
 .card-content {
   display: flex;
   align-items: center;

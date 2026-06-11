@@ -10,10 +10,11 @@ export class NotificationsService {
   private permissionRequested = false;
 
   constructor() {
-    this.signalR.inputRequested$
+    this.signalR.approvalRequested$
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((input) => {
-        this.notify('Input requested', input.question || 'A workflow is waiting for your input.');
+      .subscribe((approval) => {
+        const label = approval.stepName ? `${approval.stepName} is waiting for approval.` : 'A pipeline run is waiting for your approval.';
+        this.notify('Approval requested', label);
       });
   }
 

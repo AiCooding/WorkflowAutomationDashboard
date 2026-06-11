@@ -1,0 +1,226 @@
+<div class="page-header">
+  <div>
+    <h1>Pipelines</h1>
+    <p class="subtitle">Design orchestration flows and monitor live multi-step runs.</p>
+  </div>
+  <div class="header-actions">
+    <a mat-flat-button color="primary" routerLink="/pipelines/designer">
+      <mat-icon>add</mat-icon>
+      New Pipeline
+    </a>
+    <button mat-icon-button matTooltip="Refresh" (click)="reload()">
+      <mat-icon>refresh</mat-icon>
+    </button>
+  </div>
+</div>
+
+@if (loading()) {
+  <div class="loading-row"><mat-spinner diameter="32"></mat-spinner></div>
+} @else {
+  @if (pipelines().length === 0) {
+    <mat-card appearance="outlined" class="empty-card">
+      <mat-icon class="empty-icon">account_tree</mat-icon>
+      <h3>No pipelines yet</h3>
+      <p>Create your first pipeline to start orchestrating multi-step runs.</p>
+      <a mat-flat-button color="primary" routerLink="/pipelines/designer">Create pipeline</a>
+    </mat-card>
+  } @else {
+    <div class="pipeline-grid">
+      @for (pipeline of pipelines(); track pipeline.id) {
+        <mat-card appearance="outlined" class="pipeline-card">
+          <div class="pipeline-header-row">
+            <div>
+              <h3>{{ pipeline.name }}</h3>
+              @if (pipeline.description) {
+                <p>{{ pipeline.description }}</p>
+              }
+            </div>
+            <mat-chip>{{ pipeline.steps?.length ?? 0 }} step{{ (pipeline.steps?.length ?? 0) === 1 ? '' : 's' }}</mat-chip>
+          </div>
+
+          <div class="steps-preview">
+            @if ((pipeline.steps?.length ?? 0) === 0) {
+              <span class="muted">No steps configured yet.</span>
+            } @else {
+              @for (step of pipeline.steps ?? []; track step.id) {
+                <span class="step-pill">
+                  <mat-icon>{{ step.type === 'userApproval' ? 'approval' : 'smart_toy' }}</mat-icon>
+                  {{ step.name }}
+                </span>
+              }
+            }
+          </div>
+
+          @if (runForms()[pipeline.id]?.open) {
+            <div class="run-form">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Repository</mat-label>
+                <mat-select [ngModel]="runForms()[pipeline.id].repositoryId" (ngModelChange)="updateRunForm(pipeline.id, 'repositoryId', $event)">
+                  @for (repo of repositories(); track repo.id) {
+                    <mat-option [value]="repo.id" [disabled]="repo.isBroken">
+                      {{ repo.name }}
+                    </mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Feature (optional)</mat-label>
+                <mat-select [ngModel]="runForms()[pipeline.id].featureId" (ngModelChange)="updateRunForm(pipeline.id, 'featureId', $event)">
+                  <mat-option value="">— None —</mat-option>
+                  @for (feature of features(); track feature.id) {
+                    <mat-option [value]="feature.id">{{ feature.name }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              <div class="run-form-actions">
+                <button mat-flat-button color="primary" (click)="startRun(pipeline)" [disabled]="pipelineBusy(pipeline.id)">
+                  @if (pipelineBusy(pipeline.id)) {
+                    <mat-spinner diameter="18"></mat-spinner>
+                  } @else {
+                    <mat-icon>play_arrow</mat-icon>
+                  }
+                  Start run
+                </button>
+                <button mat-button (click)="toggleRunForm(pipeline)">Close</button>
+              </div>
+            </div>
+          }
+
+          <div class="pipeline-actions">
+            <button mat-stroked-button color="primary" (click)="toggleRunForm(pipeline)">
+              <mat-icon>play_arrow</mat-icon>
+              Run
+            </button>
+            <a mat-stroked-button [routerLink]="['/pipelines/designer', pipeline.id]">
+              <mat-icon>edit</mat-icon>
+              Edit
+            </a>
+            <button mat-stroked-button color="warn" (click)="deletePipeline(pipeline)">
+              <mat-icon>delete</mat-icon>
+              Delete
+            </button>
+          </div>
+        </mat-card>
+      }
+    </div>
+  }
+
+  <h2 class="section-title">Pipeline runs</h2>
+
+  @if (runs().length === 0) {
+    <mat-card appearance="outlined" class="empty-card small">
+      <p>No pipeline runs yet.</p>
+    </mat-card>
+  } @else {
+    <mat-accordion class="run-list" multi>
+      @for (run of runs(); track run.id) {
+        <mat-expansion-panel (opened)="onPanelOpened(run)" (closed)="onPanelClosed(run)">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <mat-icon [style.color]="styles.pipeline(run.status).color">{{ styles.pipeline(run.status).icon }}</mat-icon>
+              <span class="run-type">{{ run.pipelineName || run.pipelineId }}</span>
+              <span class="run-id">{{ shortId(run.id) }}</span>
+            </mat-panel-title>
+            <mat-panel-description>
+              <span class="status-pill" [style.background]="styles.pipeline(run.status).color + '20'" [style.color]="styles.pipeline(run.status).color">
+                {{ run.status }}
+              </span>
+              <span class="meta">
+                {{ run.repositoryName || run.repositoryId }}
+                @if (run.featureName) { · {{ run.featureName }} }
+                · {{ duration(run) }}
+                · {{ run.createdAt | date: 'short' }}
+              </span>
+            </mat-panel-description>
+          </mat-expansion-panel-header>
+
+          <div class="panel-body">
+            <div class="info-grid">
+              <div><span class="label">Current step</span><span>{{ stepName(run, run.currentStepId) }}</span></div>
+              <div><span class="label">Repository</span><span>{{ run.repositoryPath || run.repositoryName || run.repositoryId }}</span></div>
+              <div><span class="label">Feature</span><span>{{ run.featureName || run.featureId || '—' }}</span></div>
+              <div><span class="label">Started</span><span>{{ run.startedAt ? (run.startedAt | date: 'short') : '—' }}</span></div>
+              <div><span class="label">Completed</span><span>{{ run.completedAt ? (run.completedAt | date: 'short') : '—' }}</span></div>
+              @if (run.errorMessage) {
+                <div class="error"><span class="label">Error</span><pre class="error-text">{{ run.errorMessage }}</pre></div>
+              }
+            </div>
+
+            <div class="step-row">
+              @for (step of stepsForRun(run); track step.id) {
+                <div class="step-chip" [class.current]="run.currentStepId === step.id">
+                  <mat-icon [style.color]="styles.step(stepStatus(run, step)).color">
+                    {{ step.type === 'userApproval' ? 'approval' : styles.step(stepStatus(run, step)).icon }}
+                  </mat-icon>
+                  <div>
+                    <strong>{{ step.name }}</strong>
+                    <div class="step-state">{{ stepStatus(run, step) }}</div>
+                  </div>
+                </div>
+              }
+            </div>
+
+            @if (approvalStep(run); as approval) {
+              <mat-card appearance="outlined" class="approval-card">
+                <div class="approval-header">
+                  <div>
+                    <h4>Approval required</h4>
+                    <p>{{ approval.stepName || stepName(run, approval.stepId) }}</p>
+                  </div>
+                  <mat-chip color="warn">pending</mat-chip>
+                </div>
+
+                @if (canGiveFeedback(run)) {
+                  <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
+                    <mat-label>Feedback</mat-label>
+                    <textarea
+                      matInput
+                      rows="3"
+                      [ngModel]="approvalFeedback()[approval.id] || ''"
+                      (ngModelChange)="updateApprovalFeedback(approval.id, $event)"
+                      placeholder="Optional guidance to send the pipeline back for another attempt."
+                    ></textarea>
+                  </mat-form-field>
+                }
+
+                <div class="approval-actions">
+                  <button mat-flat-button color="primary" (click)="decide(run, 'approved')" [disabled]="runBusy(run.id)">
+                    <mat-icon>check</mat-icon>
+                    Approve
+                  </button>
+                  <button mat-stroked-button color="warn" (click)="decide(run, 'rejected')" [disabled]="runBusy(run.id)">
+                    <mat-icon>close</mat-icon>
+                    Reject
+                  </button>
+                </div>
+              </mat-card>
+            }
+
+            <h4>Logs</h4>
+            <div class="log-panel">
+              @if (!activeLogStep(run)) {
+                <div class="empty-inline">No log-enabled step selected for this run.</div>
+              } @else if (logsFor(run).length === 0) {
+                <div class="empty-inline">No log output yet.</div>
+              } @else {
+                <pre class="log-pre">@for (line of logsFor(run); track $index) {<span class="log-line" [class.stderr]="line.stream === 'stderr'">[{{ line.stream }}] {{ line.line }}
+</span>}</pre>
+              }
+            </div>
+
+            <div class="actions">
+              @if (run.status === 'pending' || run.status === 'queued' || run.status === 'running' || run.status === 'waiting_approval') {
+                <button mat-stroked-button color="warn" (click)="cancel(run)" [disabled]="runBusy(run.id)">
+                  <mat-icon>cancel</mat-icon>
+                  Cancel
+                </button>
+              }
+            </div>
+          </div>
+        </mat-expansion-panel>
+      }
+    </mat-accordion>
+  }
+}

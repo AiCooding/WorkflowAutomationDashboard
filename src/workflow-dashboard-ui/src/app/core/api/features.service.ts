@@ -1,7 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { Feature, FeatureSpec, FeatureSpecUpdate, FeatureStatus } from '../models';
+import { Feature, FeatureStatus, NewFeatureBody, SpecManifest } from '../models';
 
 @Injectable({ providedIn: 'root' })
 export class FeaturesService {
@@ -20,23 +20,23 @@ export class FeaturesService {
     return this.http.get<Feature>(`${this.base}/${id}`);
   }
 
-  create(feature: Partial<Feature>): Observable<Feature> {
-    return this.http.post<Feature>(this.base, feature);
+  /** Polymorphic create — mode is one of 'link' | 'stub' | 'inline'. */
+  create(body: NewFeatureBody, workflowId?: string): Observable<Feature> {
+    let params = new HttpParams();
+    if (workflowId) params = params.set('workflowId', workflowId);
+    return this.http.post<Feature>(this.base, body, { params });
   }
 
-  update(id: string, feature: Partial<Feature>): Observable<Feature> {
-    return this.http.put<Feature>(`${this.base}/${id}`, feature);
+  update(id: string, body: Partial<Feature>): Observable<Feature> {
+    return this.http.put<Feature>(`${this.base}/${id}`, body);
   }
 
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/${id}`);
   }
 
-  getSpec(id: string): Observable<FeatureSpec> {
-    return this.http.get<FeatureSpec>(`${this.base}/${id}/spec`);
-  }
-
-  saveSpec(id: string, body: FeatureSpecUpdate): Observable<FeatureSpec> {
-    return this.http.post<FeatureSpec>(`${this.base}/${id}/spec`, body);
+  /** Returns the 3-file spec manifest. */
+  getSpec(id: string): Observable<SpecManifest> {
+    return this.http.get<SpecManifest>(`${this.base}/${id}/spec`);
   }
 }

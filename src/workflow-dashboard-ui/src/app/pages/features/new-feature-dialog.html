@@ -1,0 +1,105 @@
+<h2 mat-dialog-title>New feature</h2>
+<mat-dialog-content class="content">
+  <mat-form-field appearance="outline" class="full">
+    <mat-label>Repository</mat-label>
+    @if (repositoriesLoading()) {
+      <input matInput disabled placeholder="Loading…" />
+    } @else {
+      <mat-select [value]="selectedRepoId()" (selectionChange)="onRepoChanged($event.value)">
+        @for (r of repositories(); track r.id) {
+          <mat-option [value]="r.id" [disabled]="r.isBroken">
+            {{ r.name }}
+            <span class="muted">— {{ r.path }}</span>
+            @if (r.isBroken) { <span class="broken-flag"> · broken</span> }
+          </mat-option>
+        }
+      </mat-select>
+    }
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="full">
+    <mat-label>Name</mat-label>
+    <input matInput [ngModel]="name()" (ngModelChange)="name.set($event)" required />
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="full">
+    <mat-label>Description (optional)</mat-label>
+    <textarea matInput rows="2" [ngModel]="description()" (ngModelChange)="description.set($event)"></textarea>
+  </mat-form-field>
+
+  <div class="mode-row">
+    <mat-button-toggle-group [value]="mode()" (change)="onModeChanged($event.value)" hideSingleSelectionIndicator>
+      <mat-button-toggle value="link">Link existing spec</mat-button-toggle>
+      <mat-button-toggle value="stub">Create new spec stub</mat-button-toggle>
+    </mat-button-toggle-group>
+  </div>
+
+  @if (selectedRepoId()) {
+    @if (mode() === 'link') {
+      <div class="picker">
+        <h4>Choose a spec folder</h4>
+        @if (specsLoading()) {
+          <div class="loading-row"><mat-spinner diameter="24"></mat-spinner></div>
+        } @else if (specs().length === 0) {
+          <div class="empty">No <code>openspec/specs/*</code> folders found in this repository.</div>
+        } @else {
+          <mat-list role="list" class="spec-list">
+            @for (s of specs(); track s.slug) {
+              <mat-list-item
+                role="listitem"
+                [class.selected]="selectedSlug() === s.slug"
+                [class.disabled]="!s.hasProposal"
+                (click)="selectSlug(s.slug, !s.hasProposal)"
+              >
+                <div class="spec-row">
+                  <div class="spec-name">
+                    <strong>{{ s.slug }}</strong>
+                    <span class="muted">{{ s.path }}</span>
+                  </div>
+                  <div class="spec-flags">
+                    @if (s.hasProposal) { <span class="chip ok">proposal</span> }
+                    @else { <span class="chip bad">no proposal.md</span> }
+                    @if (s.hasDesign) { <span class="chip">design</span> }
+                    @if (s.hasTasks) { <span class="chip">tasks</span> }
+                  </div>
+                </div>
+              </mat-list-item>
+            }
+          </mat-list>
+        }
+      </div>
+    } @else {
+      <mat-form-field appearance="outline" class="full">
+        <mat-label>Slug (kebab-case)</mat-label>
+        <input
+          matInput
+          [ngModel]="stubSlug()"
+          (ngModelChange)="stubSlug.set($event)"
+          placeholder="e.g. repo-linking"
+        />
+        <mat-hint>
+          A folder <code>openspec/specs/{{ stubSlug() || 'slug' }}/</code> will be created with a stub
+          <code>proposal.md</code>.
+        </mat-hint>
+        @if (stubSlug() && !slugValid()) {
+          <mat-error>Slug must be kebab-case: lowercase letters, digits, hyphens.</mat-error>
+        }
+      </mat-form-field>
+    }
+  }
+
+  @if (errorMessage(); as err) {
+    <div class="error">{{ err }}</div>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="cancel()" [disabled]="busy()">Cancel</button>
+  <button mat-flat-button color="primary" (click)="submit()" [disabled]="!canSubmit()">
+    @if (busy()) {
+      <mat-spinner diameter="18"></mat-spinner>
+    } @else {
+      Create
+    }
+  </button>
+</mat-dialog-actions>

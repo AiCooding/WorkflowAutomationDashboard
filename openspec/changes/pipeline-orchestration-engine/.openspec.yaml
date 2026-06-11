@@ -1,0 +1,11 @@
+feature: pipeline-orchestration-engine
+title: Pipeline Orchestration Engine
+status: planned
+author: architect
+created: 2025-01-27
+updated: 2025-01-27
+phases: [1, 2, 3, 4, 5, 6]
+breaking: true
+notes: >
+  Clean break — drops Workflows, WorkflowEvents, Agents, InputRequests tables.
+  Feature and Repository tables are preserved. No data migration needed (user confirmed).

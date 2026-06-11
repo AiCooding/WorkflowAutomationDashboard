@@ -8,11 +8,11 @@ public class WorkflowDbContext : DbContext
     public WorkflowDbContext(DbContextOptions<WorkflowDbContext> options) : base(options) { }
 
     public DbSet<Feature> Features => Set<Feature>();
-    public DbSet<Workflow> Workflows => Set<Workflow>();
-    public DbSet<Agent> Agents => Set<Agent>();
-    public DbSet<InputRequest> InputRequests => Set<InputRequest>();
-    public DbSet<Command> Commands => Set<Command>();
-    public DbSet<WorkflowEvent> Events => Set<WorkflowEvent>();
+    public DbSet<Repository> Repositories => Set<Repository>();
+    public DbSet<Pipeline> Pipelines => Set<Pipeline>();
+    public DbSet<PipelineRun> PipelineRuns => Set<PipelineRun>();
+    public DbSet<PipelineStepRun> PipelineStepRuns => Set<PipelineStepRun>();
+    public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -21,56 +21,68 @@ public class WorkflowDbContext : DbContext
             e.HasKey(f => f.Id);
             e.Property(f => f.Status).HasDefaultValue("backlog");
             e.Property(f => f.Priority).HasDefaultValue(0);
-        });
-
-        modelBuilder.Entity<Workflow>(e =>
-        {
-            e.HasKey(w => w.Id);
-            e.Property(w => w.Status).HasDefaultValue("pending");
-            e.HasOne(w => w.Feature)
-                .WithMany(f => f.Workflows)
-                .HasForeignKey(w => w.FeatureId)
+            e.HasOne(f => f.Repository)
+                .WithMany()
+                .HasForeignKey(f => f.RepositoryId)
                 .OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(f => f.RepositoryId);
         });
 
-        modelBuilder.Entity<Agent>(e =>
+        modelBuilder.Entity<Repository>(e =>
+        {
+            e.HasKey(r => r.Id);
+            e.Property(r => r.Path).IsRequired();
+            e.Property(r => r.Name).IsRequired();
+            e.HasIndex(r => r.Path).IsUnique();
+        });
+
+        modelBuilder.Entity<Pipeline>(e =>
+        {
+            e.HasKey(p => p.Id);
+        });
+
+        modelBuilder.Entity<PipelineRun>(e =>
+        {
+            e.HasKey(r => r.Id);
+            e.Property(r => r.Status).HasDefaultValue("pending");
+            e.HasOne(r => r.Pipeline)
+                .WithMany()
+                .HasForeignKey(r => r.PipelineId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(r => r.Feature)
+                .WithMany()
+                .HasForeignKey(r => r.FeatureId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(r => r.Repository)
+                .WithMany()
+                .HasForeignKey(r => r.RepositoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(r => r.RepositoryId);
+            e.HasIndex(r => r.Status);
+        });
+
+        modelBuilder.Entity<PipelineStepRun>(e =>
+        {
+            e.HasKey(s => s.Id);
+            e.Property(s => s.Status).HasDefaultValue("pending");
+            e.HasOne(s => s.PipelineRun)
+                .WithMany(r => r.StepRuns)
+                .HasForeignKey(s => s.PipelineRunId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ApprovalRequest>(e =>
         {
             e.HasKey(a => a.Id);
-            e.Property(a => a.Status).HasDefaultValue("idle");
-            e.HasOne(a => a.Workflow)
-                .WithMany(w => w.Agents)
-                .HasForeignKey(a => a.WorkflowId)
+            e.Property(a => a.Status).HasDefaultValue("pending");
+            e.HasOne(a => a.PipelineRun)
+                .WithMany(r => r.ApprovalRequests)
+                .HasForeignKey(a => a.PipelineRunId)
                 .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        modelBuilder.Entity<InputRequest>(e =>
-        {
-            e.HasKey(i => i.Id);
-            e.Property(i => i.Status).HasDefaultValue("pending");
-            e.HasOne(i => i.Workflow)
-                .WithMany(w => w.InputRequests)
-                .HasForeignKey(i => i.WorkflowId)
-                .OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(i => i.Agent)
+            e.HasOne(a => a.StepRun)
                 .WithMany()
-                .HasForeignKey(i => i.AgentId)
+                .HasForeignKey(a => a.StepRunId)
                 .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        modelBuilder.Entity<Command>(e =>
-        {
-            e.HasKey(c => c.Id);
-            e.Property(c => c.Status).HasDefaultValue("pending");
-            e.HasOne(c => c.Workflow)
-                .WithMany(w => w.Commands)
-                .HasForeignKey(c => c.WorkflowId)
-                .OnDelete(DeleteBehavior.SetNull);
-        });
-
-        modelBuilder.Entity<WorkflowEvent>(e =>
-        {
-            e.HasKey(ev => ev.Id);
-            e.Property(ev => ev.Id).ValueGeneratedOnAdd();
         });
     }
 }

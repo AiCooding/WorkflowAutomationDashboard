@@ -3,18 +3,29 @@ import { Injectable } from '@angular/core';
 
 @Injectable({ providedIn: 'root' })
 export class StatusStyle {
-  // Map status string -> Material color hint + icon
   workflow(status: string | null | undefined): { color: string; icon: string } {
     switch (status) {
       case 'running': return { color: '#2563eb', icon: 'play_circle' };
+      case 'queued': return { color: '#ca8a04', icon: 'hourglass_top' };
+      case 'broken': return { color: '#ea580c', icon: 'broken_image' };
       case 'paused': return { color: '#9333ea', icon: 'pause_circle' };
-      case 'waiting_input': return { color: '#d97706', icon: 'help' };
+      case 'waiting_input':
+      case 'waiting_approval': return { color: '#d97706', icon: 'approval' };
       case 'completed': return { color: '#16a34a', icon: 'check_circle' };
       case 'failed': return { color: '#dc2626', icon: 'error' };
       case 'cancelled': return { color: '#6b7280', icon: 'cancel' };
+      case 'skipped': return { color: '#94a3b8', icon: 'skip_next' };
       case 'pending':
       default: return { color: '#6b7280', icon: 'schedule' };
     }
+  }
+
+  pipeline(status: string | null | undefined): { color: string; icon: string } {
+    return this.workflow(status);
+  }
+
+  step(status: string | null | undefined): { color: string; icon: string } {
+    return this.workflow(status);
   }
 
   agent(status: string | null | undefined): { color: string; icon: string } {
@@ -46,7 +57,6 @@ export class StatusStyle {
       case 'log': return { color: '#6b7280', icon: 'article' };
       case 'error': return { color: '#dc2626', icon: 'error' };
       case 'input_requested': return { color: '#d97706', icon: 'help' };
-      case 'command_received': return { color: '#9333ea', icon: 'send' };
       default: return { color: '#6b7280', icon: 'circle' };
     }
   }

@@ -2,119 +2,62 @@
 
 .page-header {
   margin-bottom: 24px;
-  h1 { margin: 0; font-size: 28px; font-weight: 400; }
+
+  h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 400;
+  }
 }
 
 .grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 16px;
-  margin-bottom: 32px;
-
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr;
-  }
 }
 
-mat-card { padding: 20px; }
-
-h3 {
-  margin: 0 0 16px;
-  font-weight: 500;
-}
-
-.form {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-
-  .full-width { grid-column: 1 / -1; }
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 8px;
-}
-
-.bulk-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.muted {
-  font-size: 12px;
-  opacity: 0.65;
-  font-family: monospace;
-}
-
-.section-title {
-  font-size: 18px;
-  font-weight: 500;
-  margin: 24px 0 12px;
-}
-
-.commands-card {
-  padding: 0;
-  overflow: hidden;
-}
-
-table { width: 100%; }
-
-.empty {
-  padding: 32px;
-  text-align: center;
-  opacity: 0.6;
-}
-
-.draft-card {
+mat-card {
   padding: 20px;
-  margin-bottom: 24px;
-  border-left: 4px solid #6750a4;
 }
 
-.draft-header {
+.card-header {
   display: flex;
-  gap: 16px;
+  gap: 14px;
   align-items: flex-start;
-  margin-bottom: 16px;
 
-  h3 { margin: 0 0 4px; }
-
-  .draft-icon {
-    font-size: 32px;
-    width: 32px;
-    height: 32px;
-    color: #6750a4;
-    flex-shrink: 0;
+  mat-icon {
+    color: #2563eb;
+    font-size: 28px;
+    width: 28px;
+    height: 28px;
+    margin-top: 2px;
   }
 
-  .muted-text {
-    margin: 0;
-    font-size: 13px;
-    opacity: 0.75;
-    line-height: 1.5;
+  h3 {
+    margin: 0 0 6px;
+    font-weight: 500;
+  }
 
-    a { color: inherit; text-decoration: underline; }
-    code {
-      background: rgba(0, 0, 0, 0.06);
-      padding: 1px 5px;
-      border-radius: 4px;
-      font-size: 12px;
-    }
+  p {
+    margin: 0;
+    opacity: 0.75;
+    line-height: 1.45;
   }
 }
 
-.draft-form {
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 12px;
+.chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
 
-  .full-width { grid-column: 1 / -1; }
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
 
-  @media (max-width: 720px) {
-    grid-template-columns: 1fr;
+  &.dual {
+    flex-wrap: wrap;
   }
 }

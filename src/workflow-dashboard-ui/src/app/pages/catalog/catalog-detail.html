@@ -1,0 +1,64 @@
+<div class="page-header">
+  <a mat-button routerLink="/catalog">
+    <mat-icon>arrow_back</mat-icon>
+    Catalog
+  </a>
+  @if (launchable()) {
+    <button mat-raised-button color="primary" (click)="openLaunch()">
+      <mat-icon>play_arrow</mat-icon> Launch
+    </button>
+  }
+</div>
+
+@if (loading()) {
+  <div class="loading-row">
+    <mat-spinner diameter="32"></mat-spinner>
+  </div>
+} @else if (notFound()) {
+  <mat-card appearance="outlined" class="empty-card">
+    <mat-icon class="empty-icon">search_off</mat-icon>
+    <h3>Entry not found</h3>
+    <p>The entry may have been removed since the last refresh.</p>
+  </mat-card>
+} @else if (detail(); as d) {
+  <mat-card appearance="outlined" class="header-card">
+    <div class="header-row">
+      <mat-icon class="kind-icon" [class.broken]="d.entry.isBroken">
+        {{ d.entry.kind === 'workflow' ? 'play_circle' : 'smart_toy' }}
+      </mat-icon>
+      <div class="header-text">
+        <h1>{{ d.entry.displayName }}</h1>
+        <div class="meta-row">
+          <mat-chip>{{ d.entry.kind }}</mat-chip>
+          <span class="slug">{{ d.entry.slug }}</span>
+          @if (d.entry.isBroken) {
+            <mat-chip class="chip-broken" [matTooltip]="d.entry.brokenReason || ''">
+              <mat-icon matChipAvatar>error</mat-icon> Broken
+            </mat-chip>
+          }
+        </div>
+        @if (d.entry.description) {
+          <p class="description">{{ d.entry.description }}</p>
+        }
+        <div class="path-row">
+          <mat-icon>insert_drive_file</mat-icon>
+          <code>{{ d.entry.sourcePath }}</code>
+        </div>
+        @if (d.entry.isBroken && d.entry.brokenReason) {
+          <div class="broken-reason">
+            <mat-icon>error</mat-icon>
+            {{ d.entry.brokenReason }}
+          </div>
+        }
+      </div>
+    </div>
+  </mat-card>
+
+  <mat-card appearance="outlined" class="content-card">
+    @if (d.renderedHtml) {
+      <app-markdown-renderer [html]="d.renderedHtml"></app-markdown-renderer>
+    } @else {
+      <div class="empty">No content to render.</div>
+    }
+  </mat-card>
+}

@@ -47,40 +47,39 @@ export class App {
   readonly title = 'Workflow Dashboard';
   readonly connected$ = this.signalR.connected$;
 
-  readonly pendingInputs = signal(0);
+  readonly pendingApprovals = signal(0);
 
   readonly navItems: NavItem[] = [
     { label: 'Dashboard', route: '/', icon: 'dashboard', exact: true },
+    { label: 'Repositories', route: '/repositories', icon: 'folder' },
+    { label: 'Catalog', route: '/catalog', icon: 'menu_book' },
     { label: 'Features', route: '/features', icon: 'inventory_2' },
-    { label: 'Workflows', route: '/workflows', icon: 'account_tree' },
+    { label: 'Pipelines', route: '/pipelines', icon: 'account_tree' },
     { label: 'Agents', route: '/agents', icon: 'smart_toy' },
-    { label: 'Inputs', route: '/inputs', icon: 'help' },
     { label: 'Control', route: '/control', icon: 'settings_remote' },
-    { label: 'Events', route: '/events', icon: 'list_alt' },
   ];
 
   constructor() {
-    this.refreshPendingInputs();
+    this.refreshPendingApprovals();
 
-    this.signalR.inputRequested$
+    this.signalR.approvalRequested$
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => this.pendingInputs.update((n) => n + 1));
+      .subscribe(() => this.pendingApprovals.update((n) => n + 1));
 
-    this.signalR.inputAnswered$
+    this.signalR.approvalDecided$
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => this.refreshPendingInputs());
+      .subscribe(() => this.refreshPendingApprovals());
 
-    // ask for notification permission proactively (best-effort)
     void this.notifications.ensurePermission();
   }
 
-  private refreshPendingInputs(): void {
+  private refreshPendingApprovals(): void {
     this.dashboard
       .summary()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (s) => this.pendingInputs.set(s.pendingInputRequests),
-        error: () => this.pendingInputs.set(0),
+        next: (s) => this.pendingApprovals.set(s.pendingApprovals),
+        error: () => this.pendingApprovals.set(0),
       });
   }
 }

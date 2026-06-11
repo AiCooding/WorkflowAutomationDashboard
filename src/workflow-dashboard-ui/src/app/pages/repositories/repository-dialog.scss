@@ -1,0 +1,39 @@
+:host { display: block; }
+
+.dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 420px;
+  max-width: 560px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.broken-banner,
+.error-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+  margin-bottom: 4px;
+
+  mat-icon {
+    flex: 0 0 auto;
+  }
+}
+
+.broken-banner {
+  background: rgba(217, 119, 6, 0.1);
+  color: #b45309;
+}
+
+.error-banner {
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
+}

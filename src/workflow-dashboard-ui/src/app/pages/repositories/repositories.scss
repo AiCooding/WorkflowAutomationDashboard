@@ -1,0 +1,72 @@
+:host { display: block; }
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+
+  h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 400;
+  }
+}
+
+.table-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+table {
+  width: 100%;
+}
+
+.name-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.muted {
+  font-size: 12px;
+  opacity: 0.65;
+  font-family: monospace;
+}
+
+.path {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.broken-path {
+  text-decoration: line-through;
+  color: #b91c1c;
+}
+
+.broken-row {
+  background: rgba(220, 38, 38, 0.04);
+}
+
+.chip-ok {
+  background: rgba(22, 163, 74, 0.12) !important;
+  color: #166534 !important;
+}
+
+.chip-broken {
+  background: rgba(220, 38, 38, 0.12) !important;
+  color: #991b1b !important;
+}
+
+.empty {
+  padding: 32px;
+  text-align: center;
+  opacity: 0.6;
+}
+
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}

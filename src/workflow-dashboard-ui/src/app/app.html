@@ -15,8 +15,8 @@
         >
           <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
           <span matListItemTitle>{{ item.label }}</span>
-          @if (item.route === '/inputs' && pendingInputs() > 0) {
-            <span matListItemMeta class="badge">{{ pendingInputs() }}</span>
+          @if (item.route === '/pipelines' && pendingApprovals() > 0) {
+            <span matListItemMeta class="badge">{{ pendingApprovals() }}</span>
           }
         </a>
       }
@@ -40,13 +40,13 @@
 
       <a
         mat-icon-button
-        routerLink="/inputs"
-        matTooltip="Pending inputs"
-        [matBadge]="pendingInputs()"
-        [matBadgeHidden]="pendingInputs() === 0"
+        routerLink="/pipelines"
+        matTooltip="Pending approvals"
+        [matBadge]="pendingApprovals()"
+        [matBadgeHidden]="pendingApprovals() === 0"
         matBadgeColor="warn"
         matBadgeSize="small"
-        aria-label="Pending inputs"
+        aria-label="Pending approvals"
       >
         <mat-icon>notifications</mat-icon>
       </a>

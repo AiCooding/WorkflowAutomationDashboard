@@ -387,59 +387,56 @@ All settings can be overridden via environment variables in docker-compose:
 
 The dashboard hosts multiple flavours of workflow. New types can be added at any time — the `type` field is a free-form string so agents and the UI can collaborate on whatever conventions make sense.
 
-### 10.1 `feature-spec` — Drafting a feature with the PM agent
+### 10.1 PM-agent draft flow (current contract)
 
-Use this when you have a rough idea and want a PM agent to help you turn it into a proper feature description (markdown file) before any code is written. The implementation workflow (e.g. `full-pipeline`) is a separate, manually-started step.
+The PM-agent draft flow is triggered by the Workflow Automation Dashboard, not by the agent itself.
 
-**Lifecycle:**
+#### How it works
+
+1. The user selects a repository and enters a feature description on the **Control** page.
+2. The dashboard calls `POST /api/workflows/launch` with `{ catalogSlug: "pm-draft", repositoryId, payload: { description } }`.
+3. The runner reads `~/.copilot/workflows/pm-draft.md`, composes an instructions file with a context header, and writes it to `<repo>/.github/instructions/active-workflow.instructions.md`.
+4. The runner spawns `copilot` in the repository directory (`cwd = Repository.Path`). Copilot auto-loads the injected instructions file.
+5. The workflow markdown drives the PM conversation in the terminal Copilot session.
+6. On approval, the PM workflow calls the dashboard API:
+   - `POST /api/features` with `mode: "inline"`, `repositoryId`, `name`, `description`, `specSlug`, `specBody`, `?workflowId={id}`.
+7. The dashboard creates `openspec/specs/{slug}/proposal.md` in the repository.
+8. Copilot exits 0. The runner deletes the injected instructions file and marks the workflow `completed`.
+
+#### Env vars available to the workflow
+
+| Variable | Value |
+|---|---|
+| `WORKFLOW_DASHBOARD_API_URL` | Base URL of the running dashboard API |
+| `WORKFLOW_ID` | The workflow's UUID |
+| `FEATURE_ID` | The linked feature's UUID (empty string if none yet) |
+| `REPOSITORY_PATH` | Absolute path to the linked repository |
+
+#### Context header
+
+The injected instructions file begins with a machine-readable comment:
 
 ```
-User                         Dashboard                        PM agent
- │                                │                              │
- │ Control → "Draft a feature"     │                              │
- ├──────────────────────────────▶ │                              │
- │ (rough description)             │ Workflow{type:feature-spec} │
- │                                │ Command{type:start,          │
- │                                │   payloadJson:{name,desc}}   │
- │                                │ ─────────────────────────▶ │
- │                                │                              │ polls /api/commands
- │                                │                              │ marks command processed
- │                                │                              │ registers itself as agent
- │                                │                              │
- │                                │ ◀── RequestInput("How should…") ─
- │ Inputs view (or notification)   │                              │
- │ ◀── pending input ───────────  │                              │
- │ types answer                    │                              │
- ├──────────────────────────────▶ │ PollForAnswer → answered    │
- │                                │ ─────────────────────────▶ │
- │                                │       (loop until satisfied) │
- │                                │                              │
- │                                │ ◀─ RequestInput("Approve?") ─
- │ "yes"                           │                              │
- ├──────────────────────────────▶ │ ─────────────────────────▶ │
- │                                │                              │ POST /api/features
- │                                │                              │ POST /api/features/{id}/spec
- │                                │                              │   (writes docs/features/{id}.md)
- │                                │                              │ PUT  /api/workflows/{id}/status
- │                                │                              │   {status:completed, featureId}
- │                                │                              │
- │ Features view: new entry         │                              │
- │ with "View spec" button         │                              │
+<!-- workflow-context
+workflow_id: {id}
+feature_id: {featureId or "none"}
+repository_path: {path}
+launch_payload: {json}
+-->
 ```
 
-**PM agent contract:**
+#### WorkflowClient (used by workflow implementations)
 
-1. Poll `/api/commands?status=pending` until a `start` command for the PM's domain arrives. The `payloadJson` is `{ "name": string | null, "description": string }` from the Control panel.
-2. Mark the command as `processing`, then register an agent via `POST /api/agents` with `agentType: "pm"` and the workflow id.
-3. Set workflow status to `running` (`PUT /api/workflows/{id}/status`).
-4. Drive a dialog using `POST /api/input-requests` for each question and polling `GET /api/input-requests/{id}` for the user's response. Optionally ask the user to "Approve final draft?" before committing.
-5. On approval:
-   - `POST /api/features` to create the feature (a sensible `name` derived from the dialog; description = a one-paragraph summary; status = `planning`).
-   - `POST /api/features/{id}/spec` with the full markdown body. The dashboard writes the file under `Specs:RootDir/{id}.md` (or a custom `fileName` if provided) and sets `Feature.SpecPath`.
-   - `PUT /api/workflows/{id}/status` with `{ status: "completed", featureId: <new feature id> }`.
-6. On user cancellation: `PUT /api/workflows/{id}/status` with `{ status: "cancelled" }`. Do not write a spec file or create a feature.
+Workflows running inside `copilot` can use the `WorkflowDashboard.Shared.WorkflowClient` NuGet package to interact with the dashboard:
 
-The `WorkflowClient` shared library has helpers for all of this: `PollCommands`, `MarkCommandProcessed`, `RegisterAgent`, `UpdateAgentStatus`, `RequestInput`, `PollForAnswer`, `CreateFeature`, `SaveFeatureSpec`, `UpdateWorkflowStatus(workflowId, status, featureId: …)`.
+| Method | Purpose |
+|---|---|
+| `CreateFeatureWithSpecAsync` | Create a feature with an inline proposal.md (call on PM approval) |
+| `RequestInputAsync` | Ask the user a question; returns an input-request ID |
+| `PollForAnswerAsync` | Poll until the user answers; returns the answer string |
+| `LogEventAsync` | Write a structured event to the dashboard event log |
+
+
 
 ### 10.2 `full-pipeline` — Implementing a feature
 

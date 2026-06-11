@@ -3,65 +3,74 @@
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 24px;
   h1 { margin: 0; font-size: 28px; font-weight: 400; }
+  .subtitle { margin: 4px 0 0; font-size: 13px; opacity: 0.65; }
 }
 
-.filters {
+.list-card { padding: 0; overflow: hidden; }
+
+.entry-row {
+  height: auto !important;
+  padding: 12px 16px !important;
+  border-bottom: 1px solid rgba(0,0,0,.06);
+  text-decoration: none;
+  &:last-child { border-bottom: none; }
+  &:hover { background: rgba(0,0,0,.03); }
+}
+
+.broken-row { opacity: 0.7; }
+
+.entry-title {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 16px;
-  margin-bottom: 16px;
-  mat-form-field { min-width: 200px; }
-  .count { margin-left: auto; font-size: 13px; opacity: 0.7; }
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.table-card {
-  padding: 0;
-  overflow: hidden;
+.slug {
+  font-size: 12px;
+  font-family: monospace;
+  opacity: 0.55;
 }
 
-table { width: 100%; }
+.entry-meta {
+  font-size: 12px;
+  opacity: 0.6;
+}
 
-.agent-cell {
+.path { font-family: monospace; }
+
+.chip-broken {
+  background: rgba(220, 38, 38, 0.12) !important;
+  color: #b91c1c !important;
+  font-size: 11px !important;
+  min-height: 20px !important;
+  padding: 1px 8px !important;
+}
+
+.broken-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  margin-bottom: 12px;
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.empty-card {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-}
-
-.muted {
-  font-size: 12px;
-  opacity: 0.6;
-  font-family: monospace;
-}
-
-.muted.small {
-  font-size: 11px;
-}
-
-.status-pill {
-  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 2px 10px;
-  border-radius: 999px;
-  text-transform: capitalize;
-
-  mat-icon {
-    font-size: 14px;
-    width: 14px;
-    height: 14px;
-  }
-}
-
-.empty {
-  padding: 32px;
+  padding: 48px 24px;
   text-align: center;
-  opacity: 0.6;
+  .empty-icon { font-size: 48px; width: 48px; height: 48px; opacity: 0.3; }
+  h3 { margin: 12px 0 4px; }
+  p { margin: 0; opacity: 0.6; font-size: 14px; }
 }
 
 .loading-row {

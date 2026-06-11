@@ -1,0 +1,105 @@
+<div class="page-header">
+  <div>
+    <h1>Catalog</h1>
+    <p class="subtitle">
+      Discovered from <code>~/.copilot/workflows/</code> and <code>~/.copilot/agents/</code>.
+      Read-only — edit the files on disk and click Refresh.
+    </p>
+  </div>
+  <button mat-flat-button color="primary" (click)="refresh()" [disabled]="refreshing()">
+    <mat-icon>refresh</mat-icon>
+    {{ refreshing() ? 'Refreshing…' : 'Refresh' }}
+  </button>
+</div>
+
+@if (loading()) {
+  <div class="loading-row">
+    <mat-spinner diameter="32"></mat-spinner>
+  </div>
+} @else {
+  @if (entries().length === 0) {
+    <mat-card appearance="outlined" class="empty-card">
+      <mat-icon class="empty-icon">folder_off</mat-icon>
+      <h3>No catalog entries found</h3>
+      <p>
+        Add markdown files under <code>~/.copilot/workflows/</code> or
+        <code>~/.copilot/agents/</code>, then click <strong>Refresh</strong>.
+      </p>
+    </mat-card>
+  } @else {
+    @if (brokenCount() > 0) {
+      <div class="broken-banner">
+        <mat-icon>error</mat-icon>
+        {{ brokenCount() }} broken {{ brokenCount() === 1 ? 'entry' : 'entries' }} — see flags below.
+      </div>
+    }
+
+    <h2 class="section-title">
+      Workflows
+      <span class="muted">({{ workflows().length }})</span>
+    </h2>
+    <mat-card appearance="outlined" class="list-card">
+      @if (workflows().length === 0) {
+        <div class="empty">No workflows discovered.</div>
+      } @else {
+        <mat-list>
+          @for (e of workflows(); track e.slug) {
+            <a mat-list-item
+               [routerLink]="['/catalog', e.kind, e.slug]"
+               class="entry-row"
+               [class.broken-row]="e.isBroken">
+              <mat-icon matListItemIcon>{{ e.isBroken ? 'broken_image' : 'play_circle' }}</mat-icon>
+              <div matListItemTitle class="entry-title">
+                <strong>{{ e.displayName }}</strong>
+                <span class="slug">{{ e.slug }}</span>
+                @if (e.isBroken) {
+                  <mat-chip class="chip-broken" [matTooltip]="e.brokenReason || ''">
+                    <mat-icon matChipAvatar>error</mat-icon> Broken
+                  </mat-chip>
+                }
+              </div>
+              <div matListItemLine class="entry-meta">
+                @if (e.description) { {{ e.description }} · }
+                <span class="path">{{ e.sourcePath }}</span>
+              </div>
+            </a>
+          }
+        </mat-list>
+      }
+    </mat-card>
+
+    <h2 class="section-title">
+      Agents
+      <span class="muted">({{ agents().length }})</span>
+    </h2>
+    <mat-card appearance="outlined" class="list-card">
+      @if (agents().length === 0) {
+        <div class="empty">No agents discovered.</div>
+      } @else {
+        <mat-list>
+          @for (e of agents(); track e.slug) {
+            <a mat-list-item
+               [routerLink]="['/catalog', e.kind, e.slug]"
+               class="entry-row"
+               [class.broken-row]="e.isBroken">
+              <mat-icon matListItemIcon>{{ e.isBroken ? 'broken_image' : 'smart_toy' }}</mat-icon>
+              <div matListItemTitle class="entry-title">
+                <strong>{{ e.displayName }}</strong>
+                <span class="slug">{{ e.slug }}</span>
+                @if (e.isBroken) {
+                  <mat-chip class="chip-broken" [matTooltip]="e.brokenReason || ''">
+                    <mat-icon matChipAvatar>error</mat-icon> Broken
+                  </mat-chip>
+                }
+              </div>
+              <div matListItemLine class="entry-meta">
+                @if (e.description) { {{ e.description }} · }
+                <span class="path">{{ e.sourcePath }}</span>
+              </div>
+            </a>
+          }
+        </mat-list>
+      }
+    </mat-card>
+  }
+}
