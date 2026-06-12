@@ -13,6 +13,18 @@ public class PipelineRun
     public DateTime? CompletedAt { get; set; }
     public string? ErrorMessage { get; set; }
 
+    public string TicketNumber { get; set; } = string.Empty;
+    public string? BranchPrefix { get; set; }
+    public string? DefaultBranch { get; set; }
+    public string FeatureSlug { get; set; } = string.Empty;
+    public string? InitialInstructions { get; set; }
+
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public string BranchName =>
+        string.IsNullOrWhiteSpace(BranchPrefix)
+            ? TicketNumber
+            : $"{BranchPrefix.TrimEnd('/')}/{TicketNumber}";
+
     public Pipeline? Pipeline { get; set; }
     public Feature? Feature { get; set; }
     public Repository? Repository { get; set; }

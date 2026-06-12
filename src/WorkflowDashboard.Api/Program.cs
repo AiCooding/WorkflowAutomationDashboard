@@ -3,6 +3,7 @@ using WorkflowDashboard.Api.Data;
 using WorkflowDashboard.Api.Hubs;
 using WorkflowDashboard.Api.Services.AgentRunner;
 using WorkflowDashboard.Api.Services.Catalog;
+using WorkflowDashboard.Api.Services.Git;
 using WorkflowDashboard.Api.Services.Pipeline;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -29,6 +30,7 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<CatalogStartupScan
 
 builder.Services.Configure<AgentRunnerOptions>(builder.Configuration.GetSection(AgentRunnerOptions.SectionName));
 builder.Services.AddSingleton<IProcessLauncher, ProcessLauncher>();
+builder.Services.AddSingleton<IGitService, GitService>();
 builder.Services.AddSingleton<InstructionsInjector>();
 builder.Services.AddSingleton<WorkflowInputWriter>();
 builder.Services.AddSingleton<PipelineOrchestrator>();

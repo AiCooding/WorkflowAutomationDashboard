@@ -69,11 +69,18 @@ public sealed class InstructionsInjector
         sb.AppendLine($"| `STEP_ID` | `{stepRun.StepId}` |");
         sb.AppendLine($"| `ATTEMPT_NUMBER` | `{stepRun.AttemptNumber}` |");
         sb.AppendLine($"| `FEATURE_ID` | `{run.FeatureId ?? "none"}` |");
+        sb.AppendLine($"| `TICKET_NUMBER` | `{run.TicketNumber}` |");
+        sb.AppendLine($"| `BRANCH_NAME` | `{run.BranchName}` |");
+        sb.AppendLine($"| `FEATURE_SLUG` | `{run.FeatureSlug}` |");
         sb.AppendLine($"| `REPOSITORY_PATH` | `{repo.Path}` |");
         sb.AppendLine($"| `WORKFLOW_DASHBOARD_API_URL` | `{apiBaseUrl}` |");
         sb.AppendLine();
 
-        // ── Step 1: Read input ───────────────────────────────────────────────
+        // ── OpenSpec folder mandate ──────────────────────────────────────────
+        sb.AppendLine("> ⚠️ **OpenSpec folder rule:** All artifacts you create MUST live under");
+        sb.AppendLine($"> `openspec/changes/{run.FeatureSlug}/` — use EXACTLY `{run.FeatureSlug}` as the folder name.");
+        sb.AppendLine("> Do NOT invent a folder name from the feature title or any other source.");
+        sb.AppendLine();
         sb.AppendLine("---");
         sb.AppendLine();
         sb.AppendLine("## Step 1 — Read Your Input");
@@ -90,10 +97,11 @@ public sealed class InstructionsInjector
         // ── Retry callout ────────────────────────────────────────────────────
         if (stepRun.AttemptNumber > 1)
         {
-            sb.AppendLine("> ⚠️ **Retry — Attempt " + stepRun.AttemptNumber + "**");
-            sb.AppendLine("> A previous attempt of this step received feedback. Look for sections");
-            sb.AppendLine($"> containing `[{stepRun.StepId}]` or `feedback` in `{inputRelative}` and");
-            sb.AppendLine("> address every point before signalling completion.");
+            sb.AppendLine($"> ⚠️ **Retry — Attempt {stepRun.AttemptNumber}**");
+            sb.AppendLine("> - You are **updating existing files** in `openspec/changes/{run.FeatureSlug}/` — do NOT create new folders or duplicate files.");
+            sb.AppendLine("> - In `workflow-input.md` find the section containing `feedback` or your step ID — it points to a review file.");
+            sb.AppendLine($">   Review file path pattern: `openspec/changes/{run.FeatureSlug}/reviews/...` — read it for the full findings.");
+            sb.AppendLine("> - Address every finding before signalling completion.");
             sb.AppendLine();
         }
 
@@ -108,6 +116,22 @@ public sealed class InstructionsInjector
             sb.AppendLine("_(No agent definition found — use your best judgement based on the pipeline context.)_");
         sb.AppendLine();
 
+        // ── Git commit ────────────────────────────────────────────────────────
+        sb.AppendLine("---");
+        sb.AppendLine();
+        sb.AppendLine("## Before Signalling Completion — Commit Your Work");
+        sb.AppendLine();
+        sb.AppendLine("Before calling the completion API, commit all your changes:");
+        sb.AppendLine("```powershell");
+        sb.AppendLine("git add -A");
+        sb.AppendLine($"git commit -m \"{run.TicketNumber} {stepDef.Type}: {stepDef.Name}\"");
+        sb.AppendLine("# Adjust the commit message type and description as appropriate.");
+        sb.AppendLine("# Example: PANDA-83 feat(proposal): PM draft complete");
+        sb.AppendLine("```");
+        sb.AppendLine();
+        sb.AppendLine("> If there is nothing to commit (no file changes), skip the commit step.");
+        sb.AppendLine();
+
         // ── Step 3: Completion ───────────────────────────────────────────────
         sb.AppendLine("---");
         sb.AppendLine();
@@ -116,25 +140,47 @@ public sealed class InstructionsInjector
 
         if (stepDef.CanGiveFeedback)
         {
-            // Reviewer agent: must choose approved or feedback
-            sb.AppendLine("You are a **reviewer** for this step. After reviewing the work, choose one of:");
+            var reviewFilePath = $"openspec/changes/{run.FeatureSlug}/reviews/{stepRun.StepId}-review.md";
+
+            sb.AppendLine("You are a **reviewer** for this step. After reviewing the work:");
             sb.AppendLine();
-            sb.AppendLine("**✅ Approve** — work is good, pipeline advances:");
-            sb.AppendLine("```powershell");
-            sb.AppendLine($"$body = '{{\"decision\":\"approved\"}}' ");
-            sb.AppendLine($"Invoke-RestMethod -Method Post -Uri \"{completeUrl}\" \\");
-            sb.AppendLine("  -Body $body -ContentType 'application/json'");
+            sb.AppendLine($"**1. Write your detailed review** to: `{reviewFilePath}`");
+            sb.AppendLine();
+            sb.AppendLine("Use this structure:");
+            sb.AppendLine("```markdown");
+            sb.AppendLine($"# Review — {stepDef.Name}");
+            sb.AppendLine();
+            sb.AppendLine("## Verdict");
+            sb.AppendLine("`approved` | `changes-requested`");
+            sb.AppendLine();
+            sb.AppendLine("## Summary");
+            sb.AppendLine("Brief explanation of the verdict.");
+            sb.AppendLine();
+            sb.AppendLine("## Findings");
+            sb.AppendLine("| Severity | Finding | File/Location | Recommended Fix |");
+            sb.AppendLine("|----------|---------|---------------|-----------------|");
+            sb.AppendLine("| high/medium/low | ... | ... | ... |");
+            sb.AppendLine();
+            sb.AppendLine("## Strengths");
+            sb.AppendLine("- ...");
             sb.AppendLine("```");
             sb.AppendLine();
-            sb.AppendLine("**🔁 Request changes** — work needs revision, sends it back:");
+            sb.AppendLine("**2. Then call the completion API:**");
+            sb.AppendLine();
+            sb.AppendLine("**✅ Approve** — pipeline advances:");
             sb.AppendLine("```powershell");
-            sb.AppendLine("$feedback = \"Your specific, actionable feedback here\"");
-            sb.AppendLine($"$body = \"{{\\\"decision\\\":\\\"feedback\\\",\\\"feedbackText\\\":\\\"$feedback\\\"}}\"");
-            sb.AppendLine($"Invoke-RestMethod -Method Post -Uri \"{completeUrl}\" \\");
-            sb.AppendLine("  -Body $body -ContentType 'application/json'");
+            sb.AppendLine($"$body = '{{\"decision\":\"approved\"}}'");
+            sb.AppendLine($"Invoke-RestMethod -Method Post -Uri \"{completeUrl}\" -Body $body -ContentType 'application/json'");
             sb.AppendLine("```");
             sb.AppendLine();
-            sb.AppendLine("> Be specific in feedback — the receiving agent will read it directly from the shared input file.");
+            sb.AppendLine("**🔁 Request changes** — sends back with review file path:");
+            sb.AppendLine("```powershell");
+            sb.AppendLine($"$feedback = \"Review findings: {reviewFilePath}\"");
+            sb.AppendLine("$body = \"{`\"decision`\":`\"feedback`\",`\"feedbackText`\":`\"$feedback`\"}\"");
+            sb.AppendLine($"Invoke-RestMethod -Method Post -Uri \"{completeUrl}\" -Body $body -ContentType 'application/json'");
+            sb.AppendLine("```");
+            sb.AppendLine();
+            sb.AppendLine("> The receiving agent will look for this path in `workflow-input.md` on its next attempt and read the full review file.");
         }
         else
         {

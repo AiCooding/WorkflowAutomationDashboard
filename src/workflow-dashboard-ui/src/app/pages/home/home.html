@@ -1,9 +1,15 @@
 <div class="page-header">
   <h1>Dashboard</h1>
-  <a mat-flat-button color="primary" routerLink="/pipelines/designer">
-    <mat-icon>add</mat-icon>
-    New pipeline
-  </a>
+  <div class="header-actions">
+    <a mat-flat-button color="primary" routerLink="/pipelines">
+      <mat-icon>play_arrow</mat-icon>
+      Start pipeline
+    </a>
+    <a mat-stroked-button routerLink="/pipelines/designer">
+      <mat-icon>add</mat-icon>
+      New pipeline
+    </a>
+  </div>
 </div>
 
 @if (summary(); as s) {
@@ -65,7 +71,8 @@
           <span matListItemTitle>{{ run.pipelineName || run.pipelineId }}</span>
           <span matListItemLine class="event-meta">
             {{ run.status }}
-            · {{ run.repositoryName || run.repositoryId }}
+            · {{ run.repositoryPath || run.repositoryName || run.repositoryId }}
+            @if (run.ticketNumber) { · <strong>{{ run.ticketNumber }}</strong> }
             @if (run.featureName) { · {{ run.featureName }} }
             · {{ run.createdAt | date: 'short' }}
           </span>

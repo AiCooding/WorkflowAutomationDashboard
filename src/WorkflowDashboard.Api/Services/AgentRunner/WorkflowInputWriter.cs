@@ -38,8 +38,19 @@ public sealed class WorkflowInputWriter
         sb.AppendLine($"| Pipeline | `{pipeline.Name}` |");
         sb.AppendLine($"| Feature ID | `{run.FeatureId ?? "not yet created"}` |");
         sb.AppendLine($"| Repository path | `{repo.Path}` |");
+        sb.AppendLine($"| Ticket Number | `{run.TicketNumber}` |");
+        sb.AppendLine($"| Branch | `{run.BranchName}` |");
+        sb.AppendLine($"| Feature Slug | `{run.FeatureSlug}` |");
         sb.AppendLine($"| API base URL | `{apiBaseUrl}` |");
         sb.AppendLine();
+
+        if (!string.IsNullOrWhiteSpace(run.InitialInstructions))
+        {
+            sb.AppendLine("## User Instructions");
+            sb.AppendLine();
+            sb.AppendLine(run.InitialInstructions.Trim());
+            sb.AppendLine();
+        }
 
         if (feature is not null)
         {

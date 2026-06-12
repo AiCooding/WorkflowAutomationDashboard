@@ -19,7 +19,7 @@ import { FeaturesService } from '../../core/api/features.service';
 import { PipelineRunsService } from '../../core/api/pipeline-runs.service';
 import { PipelinesService } from '../../core/api/pipelines.service';
 import { RepositoriesService } from '../../core/api/repositories.service';
-import { ApprovalRequest, Feature, Pipeline, PipelineRun, PipelineStepDef, PipelineStepRun, Repository } from '../../core/models';
+import { ApprovalRequest, Feature, Pipeline, PipelineRun, PipelineStepDef, PipelineStepRun, Repository, StartPipelineRunBody, computeBranchName } from '../../core/models';
 import { SignalRService } from '../../core/realtime/signalr.service';
 import { StatusStyle, formatDuration } from '../../shared/status-style';
 
@@ -27,6 +27,9 @@ interface RunFormState {
   open: boolean;
   repositoryId: string;
   featureId: string;
+  ticketNumber: string;
+  branchPrefix: string;
+  initialInstructions: string;
 }
 
 interface StepLogLine {
@@ -83,6 +86,12 @@ export class PipelinesPage {
   readonly logs = signal<Record<string, LogPanelState>>({});
   readonly busyPipelineId = signal<string | null>(null);
   readonly busyRunId = signal<string | null>(null);
+  readonly branchConflict = signal<{
+    pipelineId: string;
+    branchName: string;
+    ticketNumber: string;
+    branchPrefix: string;
+  } | null>(null);
 
   readonly pipelineMap = computed(() => new Map(this.pipelines().map((p) => [p.id, p])));
 
@@ -141,18 +150,24 @@ export class PipelinesPage {
           open: !current?.open,
           repositoryId: current?.repositoryId ?? firstRepo,
           featureId: current?.featureId ?? '',
+          ticketNumber: current?.ticketNumber ?? '',
+          branchPrefix: current?.branchPrefix ?? 'feature',
+          initialInstructions: current?.initialInstructions ?? '',
         },
       };
     });
   }
 
-  updateRunForm(pipelineId: string, key: 'repositoryId' | 'featureId', value: string): void {
+  updateRunForm(pipelineId: string, key: 'repositoryId' | 'featureId' | 'ticketNumber' | 'branchPrefix' | 'initialInstructions', value: string): void {
     this.runForms.update((state) => ({
       ...state,
       [pipelineId]: {
         open: true,
         repositoryId: state[pipelineId]?.repositoryId ?? '',
         featureId: state[pipelineId]?.featureId ?? '',
+        ticketNumber: state[pipelineId]?.ticketNumber ?? '',
+        branchPrefix: state[pipelineId]?.branchPrefix ?? 'feature',
+        initialInstructions: state[pipelineId]?.initialInstructions ?? '',
         [key]: value,
       },
     }));
@@ -164,12 +179,19 @@ export class PipelinesPage {
       this.snackBar.open('Select a repository before starting a pipeline.', 'Dismiss', { duration: 2500 });
       return;
     }
+    if (!form.ticketNumber?.trim()) {
+      this.snackBar.open('Ticket number is required.', 'Dismiss', { duration: 2500 });
+      return;
+    }
 
     this.busyPipelineId.set(pipeline.id);
     this.pipelineRunsApi.start({
       pipelineId: pipeline.id,
       repositoryId: form.repositoryId,
       featureId: form.featureId || null,
+      ticketNumber: form.ticketNumber,
+      branchPrefix: form.branchPrefix || null,
+      initialInstructions: form.initialInstructions || null,
     }).subscribe({
       next: () => {
         this.busyPipelineId.set(null);
@@ -179,10 +201,106 @@ export class PipelinesPage {
       },
       error: (err) => {
         this.busyPipelineId.set(null);
-        const message = err?.error?.message ?? err?.error ?? 'Failed to start pipeline';
+        const errBody = err?.error;
+        if (errBody?.code === 'BRANCH_EXISTS') {
+          this.branchConflict.set({
+            pipelineId: pipeline.id,
+            branchName: errBody.branchName,
+            ticketNumber: form.ticketNumber,
+            branchPrefix: form.branchPrefix,
+          });
+          return;
+        }
+        if (errBody?.code === 'NO_GIT') {
+          this.snackBar.open(errBody.message, 'Dismiss', { duration: 6000 });
+          return;
+        }
+        if (errBody?.code === 'NO_COMMITS') {
+          this.snackBar.open(errBody.message, 'Dismiss', { duration: 6000 });
+          return;
+        }
+        const message = errBody?.message ?? 'Failed to start pipeline';
         this.snackBar.open(String(message), 'Dismiss', { duration: 4000 });
       },
     });
+  }
+
+  resolveConflict(action: 'use-existing' | 'cancel'): void {
+    const conflict = this.branchConflict();
+    if (!conflict) return;
+    if (action === 'cancel') { this.branchConflict.set(null); return; }
+
+    const pipeline = this.pipelines().find(p => p.id === conflict.pipelineId);
+    if (!pipeline) return;
+
+    const form = this.runForms()[conflict.pipelineId];
+    this.busyPipelineId.set(pipeline.id);
+    this.pipelineRunsApi.start({
+      pipelineId: pipeline.id,
+      repositoryId: form.repositoryId,
+      featureId: form.featureId || null,
+      ticketNumber: conflict.ticketNumber,
+      branchPrefix: conflict.branchPrefix || null,
+      conflictResolution: 'use-existing',
+      initialInstructions: form.initialInstructions || null,
+    }).subscribe({
+      next: () => {
+        this.busyPipelineId.set(null);
+        this.branchConflict.set(null);
+        this.toggleRunForm(pipeline);
+        this.loadRuns();
+        this.snackBar.open(`Pipeline ${pipeline.name} started on existing branch`, 'Dismiss', { duration: 2500 });
+      },
+      error: (err) => {
+        this.busyPipelineId.set(null);
+        this.snackBar.open(err?.error?.message ?? 'Failed to start pipeline', 'Dismiss', { duration: 4000 });
+      },
+    });
+  }
+
+  resolveConflictRename(newTicket: string, newPrefix: string): void {
+    const conflict = this.branchConflict();
+    if (!conflict) return;
+    const pipeline = this.pipelines().find(p => p.id === conflict.pipelineId);
+    if (!pipeline) return;
+
+    const form = this.runForms()[conflict.pipelineId];
+    this.busyPipelineId.set(pipeline.id);
+    this.pipelineRunsApi.start({
+      pipelineId: pipeline.id,
+      repositoryId: form.repositoryId,
+      featureId: form.featureId || null,
+      ticketNumber: conflict.ticketNumber,
+      branchPrefix: conflict.branchPrefix || null,
+      conflictResolution: 'rename',
+      overrideTicketNumber: newTicket,
+      overrideBranchPrefix: newPrefix || null,
+      initialInstructions: form.initialInstructions || null,
+    }).subscribe({
+      next: () => {
+        this.busyPipelineId.set(null);
+        this.branchConflict.set(null);
+        this.toggleRunForm(pipeline);
+        this.loadRuns();
+        this.snackBar.open(`Pipeline started on new branch`, 'Dismiss', { duration: 2500 });
+      },
+      error: (err) => {
+        this.busyPipelineId.set(null);
+        const errBody = err?.error;
+        if (errBody?.code === 'BRANCH_EXISTS') {
+          this.branchConflict.update(c => c ? { ...c, branchName: errBody.branchName, ticketNumber: newTicket, branchPrefix: newPrefix } : null);
+          this.snackBar.open(`Branch '${errBody.branchName}' also exists. Try a different name.`, 'Dismiss', { duration: 4000 });
+          return;
+        }
+        this.snackBar.open(errBody?.message ?? 'Failed to start pipeline', 'Dismiss', { duration: 4000 });
+      },
+    });
+  }
+
+  computeBranchPreview(pipelineId: string): string {
+    const form = this.runForms()[pipelineId];
+    if (!form?.ticketNumber) return '';
+    return computeBranchName(form.ticketNumber, form.branchPrefix);
   }
 
   deletePipeline(pipeline: Pipeline): void {

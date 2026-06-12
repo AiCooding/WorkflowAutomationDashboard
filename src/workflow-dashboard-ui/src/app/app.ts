@@ -51,11 +51,11 @@ export class App {
 
   readonly navItems: NavItem[] = [
     { label: 'Dashboard', route: '/', icon: 'dashboard', exact: true },
-    { label: 'Repositories', route: '/repositories', icon: 'folder' },
-    { label: 'Features', route: '/features', icon: 'inventory_2' },
-    { label: 'Pipelines', route: '/pipelines', icon: 'account_tree' },
-    { label: 'Agents', route: '/agents', icon: 'smart_toy' },
     { label: 'Control', route: '/control', icon: 'settings_remote' },
+    { label: 'Pipelines', route: '/pipelines', icon: 'account_tree' },
+    { label: 'Repositories', route: '/repositories', icon: 'folder' },
+    { label: 'Agents', route: '/agents', icon: 'smart_toy' },
+    { label: 'Features', route: '/features', icon: 'inventory_2' },
   ];
 
   constructor() {

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using WorkflowDashboard.Api.Data;
 using WorkflowDashboard.Api.Hubs;
 using WorkflowDashboard.Api.Models;
+using WorkflowDashboard.Api.Services.Git;
 using WorkflowDashboard.Api.Services.Pipeline;
 
 namespace WorkflowDashboard.Api.Controllers;
@@ -16,17 +17,20 @@ public class PipelineRunsController : ControllerBase
     private readonly IPipelineOrchestrator _orchestrator;
     private readonly IHubContext<WorkflowHub> _hub;
     private readonly PipelineRunProjector _projector;
+    private readonly IGitService _git;
 
     public PipelineRunsController(
         WorkflowDbContext db,
         IPipelineOrchestrator orchestrator,
         IHubContext<WorkflowHub> hub,
-        PipelineRunProjector projector)
+        PipelineRunProjector projector,
+        IGitService git)
     {
         _db = db;
         _orchestrator = orchestrator;
         _hub = hub;
         _projector = projector;
+        _git = git;
     }
 
     [HttpGet]
@@ -70,17 +74,46 @@ public class PipelineRunsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<PipelineRunDto>> StartRun([FromBody] StartPipelineRunBody body)
     {
+        if (string.IsNullOrWhiteSpace(body.TicketNumber))
+            return BadRequest(new { code = "TICKET_REQUIRED", message = "Ticket number is required." });
+
         var pipeline = await _db.Pipelines.FindAsync(body.PipelineId);
         if (pipeline is null) return BadRequest("Pipeline not found.");
 
         var repo = await _db.Repositories.FindAsync(body.RepositoryId);
         if (repo is null) return BadRequest("Repository not found.");
 
-        if (!string.IsNullOrWhiteSpace(body.FeatureId))
+        // Git pre-flight
+        if (!await _git.IsGitRepoAsync(repo.Path))
+            return UnprocessableEntity(new { code = "NO_GIT", message = $"No git repository found at '{repo.Path}'. Run 'git init' there first." });
+
+        if (!await _git.HasCommitsAsync(repo.Path))
+            return UnprocessableEntity(new { code = "NO_COMMITS", message = "Git repository has no commits. Make an initial commit before starting a pipeline." });
+
+        // Determine effective ticket/prefix (allow rename on conflict resolution)
+        var effectiveTicket = body.ConflictResolution == "rename" && !string.IsNullOrWhiteSpace(body.OverrideTicketNumber)
+            ? body.OverrideTicketNumber
+            : body.TicketNumber;
+        var effectivePrefix = body.ConflictResolution == "rename"
+            ? body.OverrideBranchPrefix
+            : body.BranchPrefix;
+
+        // Compute branch name
+        var branchName = string.IsNullOrWhiteSpace(effectivePrefix)
+            ? effectiveTicket
+            : $"{effectivePrefix.TrimEnd('/')}/{effectiveTicket}";
+
+        // Conflict check
+        if (string.IsNullOrEmpty(body.ConflictResolution))
         {
-            var feature = await _db.Features.FindAsync(body.FeatureId);
-            if (feature is null) return BadRequest("Feature not found.");
+            if (await _git.BranchExistsAsync(repo.Path, branchName))
+                return Conflict(new { code = "BRANCH_EXISTS", branchName, message = $"Branch '{branchName}' already exists." });
         }
+
+        var defaultBranch = await _git.DetectDefaultBranchAsync(repo.Path) ?? "main";
+
+        // Feature slug = lowercased ticket, e.g. "PANDA-83" → "panda-83"
+        var featureSlug = effectiveTicket.ToLowerInvariant();
 
         var run = new PipelineRun
         {
@@ -88,12 +121,34 @@ public class PipelineRunsController : ControllerBase
             PipelineId = body.PipelineId,
             FeatureId = body.FeatureId,
             RepositoryId = body.RepositoryId,
+            TicketNumber = effectiveTicket,
+            BranchPrefix = effectivePrefix,
+            DefaultBranch = defaultBranch,
+            FeatureSlug = featureSlug,
+        InitialInstructions = body.InitialInstructions,
             Status = "pending",
             CurrentStepId = string.Empty,
             CreatedAt = DateTime.UtcNow,
         };
         _db.PipelineRuns.Add(run);
         await _db.SaveChangesAsync();
+
+        // Git branch setup
+        try
+        {
+            if (body.ConflictResolution == "use-existing")
+                await _git.CheckoutBranchAsync(repo.Path, branchName);
+            else
+                await _git.CreateAndCheckoutBranchAsync(repo.Path, defaultBranch, branchName);
+        }
+        catch (Exception ex)
+        {
+            run.Status = "failed";
+            run.ErrorMessage = $"Git branch setup failed: {ex.Message}";
+            run.CompletedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+            return StatusCode(500, new { code = "GIT_ERROR", message = run.ErrorMessage });
+        }
 
         await _orchestrator.StartRunAsync(run.Id);
 
@@ -162,6 +217,16 @@ public class PipelineRunsController : ControllerBase
     }
 }
 
-public record StartPipelineRunBody(string PipelineId, string RepositoryId, string? FeatureId);
+public record StartPipelineRunBody(
+    string PipelineId,
+    string RepositoryId,
+    string? FeatureId,
+    string TicketNumber,
+    string? BranchPrefix,
+    string? ConflictResolution,
+    string? OverrideTicketNumber,
+    string? OverrideBranchPrefix,
+    string? InitialInstructions
+);
 public record ApprovalDecisionBody(string Decision, string? FeedbackText);
 public record AgentStepCompleteBody(string? Decision, string? FeedbackText);

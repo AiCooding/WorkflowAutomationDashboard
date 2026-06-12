@@ -270,6 +270,11 @@ export interface PipelineRun {
   startedAt?: string | null;
   completedAt?: string | null;
   errorMessage?: string | null;
+  ticketNumber: string;
+  branchPrefix?: string | null;
+  defaultBranch?: string | null;
+  featureSlug: string;
+  branchName?: string; // computed by frontend
   pipelineName?: string | null;
   featureName?: string | null;
   repositoryPath?: string | null;
@@ -310,6 +315,17 @@ export interface StartPipelineRunBody {
   pipelineId: string;
   repositoryId: string;
   featureId?: string | null;
+  ticketNumber: string;
+  branchPrefix?: string | null;
+  conflictResolution?: 'use-existing' | 'rename' | null;
+  overrideTicketNumber?: string | null;
+  overrideBranchPrefix?: string | null;
+  initialInstructions?: string | null;
+}
+
+export function computeBranchName(ticketNumber: string, branchPrefix?: string | null): string {
+  if (!branchPrefix?.trim()) return ticketNumber;
+  return `${branchPrefix.replace(/\/$/, '')}/${ticketNumber}`;
 }
 
 export interface ApprovalDecisionBody {

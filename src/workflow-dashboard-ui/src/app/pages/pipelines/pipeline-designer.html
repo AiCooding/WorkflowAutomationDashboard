@@ -29,17 +29,6 @@
         <textarea matInput rows="3" [ngModel]="model().description" (ngModelChange)="updateField('description', $event)"></textarea>
       </mat-form-field>
 
-      <div class="toolbar">
-        <button mat-stroked-button color="primary" (click)="addStep('agent')">
-          <mat-icon>smart_toy</mat-icon>
-          Add agent step
-        </button>
-        <button mat-stroked-button (click)="addStep('userApproval')">
-          <mat-icon>approval</mat-icon>
-          Add approval step
-        </button>
-      </div>
-
       <div class="step-list">
         @for (step of model().steps; track $index) {
           <mat-card appearance="outlined" class="step-card">
@@ -103,6 +92,17 @@
             </div>
           </mat-card>
         }
+      </div>
+
+      <div class="toolbar">
+        <button mat-stroked-button color="primary" (click)="addStep('agent')">
+          <mat-icon>smart_toy</mat-icon>
+          Add agent step
+        </button>
+        <button mat-stroked-button (click)="addStep('userApproval')">
+          <mat-icon>approval</mat-icon>
+          Add approval step
+        </button>
       </div>
     </mat-card>
 

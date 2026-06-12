@@ -30,6 +30,12 @@ public sealed class RunningProcess : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        try
+        {
+            if (!Process.HasExited)
+                Process.Kill(entireProcessTree: true);
+        }
+        catch { }
         try { Process.Dispose(); } catch { }
         try { Cts.Dispose(); } catch { }
         await LogBatcher.DisposeAsync();

@@ -54,8 +54,6 @@ for the implementation checklist. You validate your work against `specs/` scenar
 
 ### Phase 2 — Iterative implementation
 
-Only begin Phase 2 after the requester explicitly confirms (e.g. "start", "go ahead", "looks good").
-
 For **each task** in `tasks.md`, in order:
 
 1. **Announce** which task you are starting:
@@ -67,26 +65,28 @@ For **each task** in `tasks.md`, in order:
 3. **Summarise** what you did in 3–8 bullet points (files created/modified, key decisions, anything
    the reviewer should pay attention to).
 
-4. **Suggest a commit message** using the format:
+4. **Commit your changes** using the injected ticket number prefix:
    ```
-   {type}({scope}): {short imperative summary}
+   {TICKET_NUMBER} {type}({scope}): {short imperative summary}
 
    {optional body: what changed and why, max 3 lines}
 
    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
    ```
-   Where `{type}` is one of: `feat`, `fix`, `refactor`, `test`, `chore`, `docs`.
+   The `TICKET_NUMBER` (e.g. `PANDA-83`) is in your context table at the top of this file.
+   `{type}` is one of: `feat`, `fix`, `refactor`, `test`, `chore`, `docs`.
 
-5. **Stop and wait.** Tell the requester:
-   > *"⏸ Task {N} complete. Please review the changes above, commit if happy, then tell me to
-   > continue with Task {N+1}."*
+   Run:
+   ```powershell
+   git add -A
+   git commit -m "{TICKET_NUMBER} feat({scope}): {description}"
+   ```
 
-6. Wait for the requester to say something like "continue", "next", or "done, go ahead" before
-   moving to the next task.
+5. Continue with next task:
+   > *"⏸ Task {N} complete."*
 
-7. After the **last task**, say:
-   > *"✅ All tasks complete. The implementation matches the design. Consider running
-   > the code-reviewer persona for a final review before merging."*
+6. After the **last task**, say:
+   > *"✅ All tasks complete."*
 
 ## Rules
 

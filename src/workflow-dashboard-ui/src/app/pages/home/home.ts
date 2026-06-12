@@ -62,8 +62,8 @@ export class HomePage {
     { label: 'Completed runs', key: 'completedPipelineRuns', icon: 'check_circle', color: '#16a34a', route: '/pipelines' },
     { label: 'Features in progress', key: 'featuresInProgress', icon: 'pending_actions', color: '#2563eb', route: '/features' },
     { label: 'Total features', key: 'totalFeatures', icon: 'inventory_2', color: '#6b7280', route: '/features' },
-    { label: 'Catalog entries', key: 'totalCatalogEntries', icon: 'menu_book', color: '#7c3aed', route: '/catalog' },
-    { label: 'Broken catalog entries', key: 'brokenCatalogEntries', icon: 'report', color: '#dc2626', route: '/catalog' },
+    { label: 'Catalog entries', key: 'totalCatalogEntries', icon: 'menu_book', color: '#7c3aed', route: '/agents' },
+    { label: 'Broken catalog entries', key: 'brokenCatalogEntries', icon: 'report', color: '#dc2626', route: '/agents' },
   ];
 
   constructor() {

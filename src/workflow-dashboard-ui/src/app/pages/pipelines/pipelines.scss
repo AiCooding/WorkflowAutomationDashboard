@@ -278,3 +278,38 @@ mat-panel-description {
 }
 
 .muted { opacity: 0.65; }
+
+.conflict-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.conflict-dialog {
+  max-width: 480px;
+  width: 100%;
+  padding: 8px;
+}
+
+.branch-preview {
+  font-size: 0.85em;
+  color: var(--mat-sys-on-surface-variant, #666);
+  margin: 4px 0;
+}
+
+.conflict-rename-fields {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.branch-chip {
+  font-size: 11px;
+  opacity: 0.75;
+  font-family: monospace;
+}

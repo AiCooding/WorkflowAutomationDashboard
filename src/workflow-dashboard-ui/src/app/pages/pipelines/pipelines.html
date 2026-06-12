@@ -73,6 +73,42 @@
                 </mat-select>
               </mat-form-field>
 
+              <!-- Ticket Number -->
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Ticket Number *</mat-label>
+                <input matInput
+                  [value]="runForms()[pipeline.id]?.ticketNumber ?? ''"
+                  (input)="updateRunForm(pipeline.id, 'ticketNumber', $any($event.target).value)"
+                  placeholder="e.g. PANDA-83"
+                  required />
+                <mat-hint>Required. Used for branch name and commit prefix.</mat-hint>
+              </mat-form-field>
+
+              <!-- Branch Prefix -->
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Branch Prefix (optional)</mat-label>
+                <input matInput
+                  [value]="runForms()[pipeline.id]?.branchPrefix ?? 'feature'"
+                  (input)="updateRunForm(pipeline.id, 'branchPrefix', $any($event.target).value)"
+                  placeholder="e.g. feature" />
+              </mat-form-field>
+
+              <!-- Branch name preview -->
+              @if (runForms()[pipeline.id]?.ticketNumber) {
+                <p class="branch-preview">
+                  Branch: <code>{{ computeBranchPreview(pipeline.id) }}</code>
+                </p>
+              }
+
+              <!-- Initial instructions -->
+              <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
+                <mat-label>Initial instructions (optional)</mat-label>
+                <textarea matInput rows="4"
+                  [value]="runForms()[pipeline.id]?.initialInstructions ?? ''"
+                  (input)="updateRunForm(pipeline.id, 'initialInstructions', $any($event.target).value)"
+                  placeholder="Describe what you want to build or achieve. The first agent will read this."></textarea>
+              </mat-form-field>
+
               <div class="run-form-actions">
                 <button mat-flat-button color="primary" (click)="startRun(pipeline)" [disabled]="pipelineBusy(pipeline.id)">
                   @if (pipelineBusy(pipeline.id)) {
@@ -121,13 +157,17 @@
               <mat-icon [style.color]="styles.pipeline(run.status).color">{{ styles.pipeline(run.status).icon }}</mat-icon>
               <span class="run-type">{{ run.pipelineName || run.pipelineId }}</span>
               <span class="run-id">{{ shortId(run.id) }}</span>
+              @if (run.ticketNumber) {
+                <mat-chip color="primary" highlighted>{{ run.ticketNumber }}</mat-chip>
+                <code class="branch-chip">{{ run.branchPrefix ? run.branchPrefix + '/' + run.ticketNumber : run.ticketNumber }}</code>
+              }
             </mat-panel-title>
             <mat-panel-description>
               <span class="status-pill" [style.background]="styles.pipeline(run.status).color + '20'" [style.color]="styles.pipeline(run.status).color">
                 {{ run.status }}
               </span>
               <span class="meta">
-                {{ run.repositoryName || run.repositoryId }}
+                {{ run.repositoryPath || run.repositoryName || run.repositoryId }}
                 @if (run.featureName) { · {{ run.featureName }} }
                 · {{ duration(run) }}
                 · {{ run.createdAt | date: 'short' }}
@@ -222,4 +262,43 @@
       }
     </mat-accordion>
   }
+}
+
+<!-- Branch Conflict Dialog -->
+@if (branchConflict(); as conflict) {
+  <div class="conflict-overlay">
+    <mat-card class="conflict-dialog">
+      <mat-card-header>
+        <mat-card-title>Branch Already Exists</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p>Branch <code>{{ conflict.branchName }}</code> already exists in the repository.</p>
+        <p>How would you like to proceed?</p>
+
+        <div class="conflict-rename-fields">
+          <p><strong>Rename branch:</strong></p>
+          <mat-form-field appearance="outline">
+            <mat-label>New Ticket Number</mat-label>
+            <input matInput #renameTicket [value]="conflict.ticketNumber" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Branch Prefix</mat-label>
+            <input matInput #renamePrefix [value]="conflict.branchPrefix" />
+          </mat-form-field>
+          <p class="branch-preview">Preview: <code>{{ renamePrefix.value ? renamePrefix.value + '/' + renameTicket.value : renameTicket.value }}</code></p>
+        </div>
+      </mat-card-content>
+      <mat-card-actions>
+        <button mat-stroked-button (click)="resolveConflict('use-existing')">
+          Continue on existing branch
+        </button>
+        <button mat-flat-button color="primary"
+          (click)="resolveConflictRename(renameTicket.value, renamePrefix.value)"
+          [disabled]="!renameTicket.value">
+          Create renamed branch
+        </button>
+        <button mat-button (click)="resolveConflict('cancel')">Cancel</button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
 }
