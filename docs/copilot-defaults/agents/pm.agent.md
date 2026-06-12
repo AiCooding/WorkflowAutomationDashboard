@@ -1,4 +1,6 @@
 ---
+name: PM
+slug: pm
 description: Product Manager — defines new features clearly enough for a senior architect to plan implementation, focusing on user perspective and staying free of technical detail
 ---
 
