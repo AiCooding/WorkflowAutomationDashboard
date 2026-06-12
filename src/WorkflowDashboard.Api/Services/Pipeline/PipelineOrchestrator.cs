@@ -21,6 +21,9 @@ public sealed class OrchestratorMessage
     public string? PipelineRunId { get; init; }
     public string? StepRunId { get; init; }
     public string? ApprovalRequestId { get; init; }
+    /// <summary>"approved" | "feedback" — only set for StepCompleted messages from agent steps.</summary>
+    public string? Decision { get; init; }
+    public string? FeedbackText { get; init; }
 }
 
 public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestrator
@@ -125,12 +128,14 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
             : Array.Empty<LogLine>();
     }
 
-    public void NotifyStepCompleted(string stepRunId)
+    public void NotifyStepCompleted(string stepRunId, string? decision = null, string? feedbackText = null)
     {
         _channel.Writer.TryWrite(new OrchestratorMessage
         {
             Type = OrchestratorMessageType.StepCompleted,
             StepRunId = stepRunId,
+            Decision = decision,
+            FeedbackText = feedbackText,
         });
     }
 
@@ -176,7 +181,7 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
                 await HandleStartRunAsync(msg.PipelineRunId!, ct);
                 break;
             case OrchestratorMessageType.StepCompleted:
-                await HandleStepCompletedAsync(msg.StepRunId!, ct);
+                await HandleStepCompletedAsync(msg.StepRunId!, msg.Decision, msg.FeedbackText, ct);
                 break;
             case OrchestratorMessageType.ApprovalDecided:
                 await HandleApprovalDecidedAsync(msg.ApprovalRequestId!, ct);
@@ -246,7 +251,7 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
         await AdvanceToStepAsync(db, run, steps[0], steps, ct);
     }
 
-    private async Task HandleStepCompletedAsync(string stepRunId, CancellationToken ct)
+    private async Task HandleStepCompletedAsync(string stepRunId, string? decision, string? feedbackText, CancellationToken ct)
     {
         if (_running.TryRemove(stepRunId, out var rp))
             await rp.DisposeAsync();
@@ -295,6 +300,46 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
             return;
         }
 
+        var currentStepDef = steps[currentIdx];
+
+        // Agent feedback loop: reviewer agent sent back "feedback" with returnTo configured.
+        var isFeedback = string.Equals(decision, "feedback", StringComparison.OrdinalIgnoreCase);
+        if (isFeedback && currentStepDef.CanGiveFeedback && !string.IsNullOrEmpty(currentStepDef.ReturnTo))
+        {
+            var returnToStep = steps.FirstOrDefault(s => s.Id == currentStepDef.ReturnTo);
+            if (returnToStep is null)
+            {
+                await FailRunAsync(db, run, $"ReturnTo step '{currentStepDef.ReturnTo}' not found in pipeline.", ct);
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(feedbackText) && run.Repository is not null)
+            {
+                try
+                {
+                    var inputPath = WorkflowInputWriter.GetPath(run.Repository);
+                    await _inputWriter.AppendSection(inputPath, currentStepDef.Id, stepRun.AttemptNumber,
+                        stepRun.AgentSlug ?? "agent", returnToStep.Id, feedbackText);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to append agent feedback to workflow-input.md.");
+                }
+            }
+
+            var existingAttempts = await db.PipelineStepRuns
+                .Where(s => s.PipelineRunId == run.Id && s.StepId == returnToStep.Id)
+                .CountAsync(ct);
+
+            run.CurrentStepId = returnToStep.Id;
+            run.Status = "running";
+            await db.SaveChangesAsync(ct);
+            await _hub.Clients.All.SendAsync(PipelineHubMethods.StepRunUpdated, stepRun, ct);
+            await _hub.Clients.All.SendAsync(PipelineHubMethods.PipelineRunUpdated, run, ct);
+            await AdvanceToStepAsync(db, run, returnToStep, steps, ct, attemptNumber: existingAttempts + 1);
+            return;
+        }
+
         var nextIdx = currentIdx + 1;
 
         await db.SaveChangesAsync(ct);
@@ -315,6 +360,7 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
             await AdvanceToStepAsync(db, run, nextStep, steps, ct);
         }
     }
+
 
     private async Task HandleApprovalDecidedAsync(string approvalRequestId, CancellationToken ct)
     {
@@ -485,9 +531,10 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
         }
 
         var inputFilePath = WorkflowInputWriter.GetPath(run.Repository!);
+        var apiBaseUrl = _configuration["ApiBaseUrl"] ?? "http://localhost:5000";
         try
         {
-            _injector.Inject(stepRun, run, run.Repository!, agentMarkdownBody, inputFilePath);
+            _injector.Inject(stepRun, run, run.Repository!, stepDef, agentMarkdownBody, inputFilePath, apiBaseUrl);
         }
         catch (Exception ex)
         {
@@ -495,7 +542,6 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
         }
 
         Process process;
-        var apiBaseUrl = _configuration["ApiBaseUrl"] ?? "http://localhost:5000";
         try
         {
             process = _launcher.Start(stepRun, run, run.Repository!, apiBaseUrl);

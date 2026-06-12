@@ -52,7 +52,6 @@ export class App {
   readonly navItems: NavItem[] = [
     { label: 'Dashboard', route: '/', icon: 'dashboard', exact: true },
     { label: 'Repositories', route: '/repositories', icon: 'folder' },
-    { label: 'Catalog', route: '/catalog', icon: 'menu_book' },
     { label: 'Features', route: '/features', icon: 'inventory_2' },
     { label: 'Pipelines', route: '/pipelines', icon: 'account_tree' },
     { label: 'Agents', route: '/agents', icon: 'smart_toy' },

@@ -126,11 +126,11 @@ export class PipelineDesignerPage {
       steps: model.steps.map((step, stepIndex) => {
         if (stepIndex !== index) return step;
         const next = { ...step, ...patch };
+        // When switching to agent: clear agentSlug only if not already set
         if (next.type === 'agent') {
-          next.canGiveFeedback = false;
-          next.returnTo = null;
           next.agentSlug = next.agentSlug || this.agents()[0]?.slug || null;
         }
+        // When switching to userApproval: clear agentSlug
         if (next.type === 'userApproval') {
           next.agentSlug = null;
         }

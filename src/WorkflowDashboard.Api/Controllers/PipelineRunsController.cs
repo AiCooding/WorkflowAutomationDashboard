@@ -118,11 +118,14 @@ public class PipelineRunsController : ControllerBase
     }
 
     [HttpPost("{runId}/steps/{stepRunId}/complete")]
-    public async Task<IActionResult> CompleteStep(string runId, string stepRunId)
+    public async Task<IActionResult> CompleteStep(string runId, string stepRunId, [FromBody] AgentStepCompleteBody? body)
     {
         var stepRun = await _db.PipelineStepRuns
             .FirstOrDefaultAsync(s => s.Id == stepRunId && s.PipelineRunId == runId);
         if (stepRun is null) return NotFound();
+
+        var decision = (body?.Decision ?? "approved").Trim().ToLowerInvariant();
+        var feedbackText = body?.FeedbackText;
 
         if (stepRun.Status == "running")
         {
@@ -131,7 +134,7 @@ public class PipelineRunsController : ControllerBase
             await _db.SaveChangesAsync();
         }
 
-        _orchestrator.NotifyStepCompleted(stepRunId);
+        _orchestrator.NotifyStepCompleted(stepRunId, decision, feedbackText);
         return Ok();
     }
 
@@ -161,3 +164,4 @@ public class PipelineRunsController : ControllerBase
 
 public record StartPipelineRunBody(string PipelineId, string RepositoryId, string? FeatureId);
 public record ApprovalDecisionBody(string Decision, string? FeedbackText);
+public record AgentStepCompleteBody(string? Decision, string? FeedbackText);

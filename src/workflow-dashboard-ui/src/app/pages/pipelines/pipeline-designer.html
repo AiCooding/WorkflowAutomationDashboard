@@ -80,15 +80,18 @@
                     }
                   </mat-select>
                 </mat-form-field>
-              } @else {
-                <mat-checkbox [ngModel]="step.canGiveFeedback" (ngModelChange)="updateStep($index, { canGiveFeedback: !!$event })">
-                  Allow reviewer feedback
-                </mat-checkbox>
+              }
 
+              <!-- Feedback loop — available for both agent reviewer and userApproval steps -->
+              <mat-checkbox [ngModel]="step.canGiveFeedback" (ngModelChange)="updateStep($index, { canGiveFeedback: !!$event })">
+                {{ step.type === 'agent' ? 'This step can send feedback (reviewer agent)' : 'Allow rejection with feedback' }}
+              </mat-checkbox>
+
+              @if (step.canGiveFeedback) {
                 <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>Return to step (optional)</mat-label>
+                  <mat-label>Return to step on feedback/rejection</mat-label>
                   <mat-select [ngModel]="step.returnTo" (ngModelChange)="updateStep($index, { returnTo: $event || null })">
-                    <mat-option value="">End run on rejection</mat-option>
+                    <mat-option value="">End run on feedback</mat-option>
                     @for (candidate of model().steps; track candidate.id) {
                       @if (candidate.id !== step.id) {
                         <mat-option [value]="candidate.id">{{ candidate.name }} ({{ candidate.id }})</mat-option>
