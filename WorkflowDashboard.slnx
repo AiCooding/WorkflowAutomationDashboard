@@ -7,11 +7,8 @@
       <Deploy />
     </Project>
   </Folder>
-  <Folder Name="/Docker/">
-    <File Path="Dockerfile" />
-    <File Path="docker-compose.yml" />
-  </Folder>
   <Folder Name="/Solution Items/">
     <File Path="global.json" />
+    <File Path="README.md" />
   </Folder>
 </Solution>

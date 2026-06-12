@@ -79,7 +79,7 @@
                 <input matInput
                   [value]="runForms()[pipeline.id]?.ticketNumber ?? ''"
                   (input)="updateRunForm(pipeline.id, 'ticketNumber', $any($event.target).value)"
-                  placeholder="e.g. PANDA-83"
+                  placeholder="e.g. TEST-42"
                   required />
                 <mat-hint>Required. Used for branch name and commit prefix.</mat-hint>
               </mat-form-field>

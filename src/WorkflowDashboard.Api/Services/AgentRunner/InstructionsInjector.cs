@@ -126,7 +126,7 @@ public sealed class InstructionsInjector
         sb.AppendLine("git add -A");
         sb.AppendLine($"git commit -m \"{run.TicketNumber} {stepDef.Type}: {stepDef.Name}\"");
         sb.AppendLine("# Adjust the commit message type and description as appropriate.");
-        sb.AppendLine("# Example: PANDA-83 feat(proposal): PM draft complete");
+        sb.AppendLine("# Example: TEST-42 feat(proposal): PM draft complete");
         sb.AppendLine("```");
         sb.AppendLine();
         sb.AppendLine("> If there is nothing to commit (no file changes), skip the commit step.");

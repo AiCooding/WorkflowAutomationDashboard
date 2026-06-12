@@ -112,7 +112,7 @@ public class PipelineRunsController : ControllerBase
 
         var defaultBranch = await _git.DetectDefaultBranchAsync(repo.Path) ?? "main";
 
-        // Feature slug = lowercased ticket, e.g. "PANDA-83" → "panda-83"
+        // Feature slug = lowercased ticket, e.g. "TEST-42" → "test-42"
         var featureSlug = effectiveTicket.ToLowerInvariant();
 
         var run = new PipelineRun
