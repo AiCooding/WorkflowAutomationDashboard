@@ -46,6 +46,7 @@ export class App {
 
   readonly title = 'Workflow Dashboard';
   readonly connected$ = this.signalR.connected$;
+  readonly helpUrl = 'https://aicooding.github.io/WorkflowAutomationDashboard/';
 
   readonly pendingApprovals = signal(0);
 

@@ -1,0 +1,25 @@
+theme: jekyll-theme-cayman
+title: Workflow Automation Dashboard
+description: Help & Documentation — design pipelines, manage repositories, run AI agents and review approvals.
+url: "https://aicooding.github.io"
+baseurl: "/WorkflowAutomationDashboard"
+
+show_downloads: false
+
+nav_links:
+  - title: Home
+    url: /WorkflowAutomationDashboard/
+  - title: Dashboard
+    url: /WorkflowAutomationDashboard/dashboard
+  - title: Pipelines
+    url: /WorkflowAutomationDashboard/pipelines
+  - title: Repositories
+    url: /WorkflowAutomationDashboard/repositories
+  - title: Agents
+    url: /WorkflowAutomationDashboard/agents
+  - title: Features
+    url: /WorkflowAutomationDashboard/features
+  - title: Input Requests
+    url: /WorkflowAutomationDashboard/input-requests
+  - title: Workflow Runs
+    url: /WorkflowAutomationDashboard/runs
