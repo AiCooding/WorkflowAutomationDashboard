@@ -165,6 +165,18 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
         {
             run.Status = "cancelled";
             run.CompletedAt = DateTime.UtcNow;
+
+            // Dismiss any approvals that are still pending so the dashboard
+            // count and nav badge are cleaned up immediately.
+            var pendingApprovals = await db.ApprovalRequests
+                .Where(a => a.PipelineRunId == pipelineRunId && a.Status == "pending")
+                .ToListAsync(ct);
+            foreach (var approval in pendingApprovals)
+            {
+                approval.Status = "cancelled";
+                approval.DecidedAt = DateTime.UtcNow;
+            }
+
             await db.SaveChangesAsync(ct);
             await _hub.Clients.All.SendAsync(PipelineHubMethods.PipelineRunUpdated, run, ct);
             FreeRepoSlot(run.RepositoryId, pipelineRunId);

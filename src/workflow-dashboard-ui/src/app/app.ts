@@ -69,6 +69,16 @@ export class App {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.refreshPendingApprovals());
 
+    // When a run is cancelled or fails any pending approvals are dismissed
+    // server-side, so the badge must be re-synced from the source of truth.
+    this.signalR.pipelineRunUpdated$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((run) => {
+        if (run.status === 'cancelled' || run.status === 'failed') {
+          this.refreshPendingApprovals();
+        }
+      });
+
     void this.notifications.ensurePermission();
   }
 

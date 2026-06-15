@@ -27,7 +27,9 @@ public class DashboardController : ControllerBase
             WaitingApprovalRuns = await _db.PipelineRuns.CountAsync(r => r.Status == "waiting_approval"),
             CompletedPipelineRuns = await _db.PipelineRuns.CountAsync(r => r.Status == "completed"),
             FailedPipelineRuns = await _db.PipelineRuns.CountAsync(r => r.Status == "failed"),
-            PendingApprovals = await _db.ApprovalRequests.CountAsync(a => a.Status == "pending"),
+            PendingApprovals = await _db.ApprovalRequests
+                .CountAsync(a => a.Status == "pending" &&
+                                 a.PipelineRun!.Status == "waiting_approval"),
             TotalFeatures = await _db.Features.CountAsync(),
             FeaturesInProgress = await _db.Features.CountAsync(f => f.Status == "in_progress"),
             TotalRepositories = await _db.Repositories.CountAsync(),
