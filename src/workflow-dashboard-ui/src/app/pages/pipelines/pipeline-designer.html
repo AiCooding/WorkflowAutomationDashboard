@@ -6,10 +6,18 @@
     </a>
     <h1>{{ pipelineId() ? 'Edit pipeline' : 'New pipeline' }}</h1>
   </div>
-  <button mat-flat-button color="primary" (click)="save()" [disabled]="saving() || loading()">
-    <mat-icon>save</mat-icon>
-    Save
-  </button>
+  <div class="header-actions">
+    @if (pipelineId()) {
+      <button mat-stroked-button (click)="exportPipeline()" [disabled]="saving() || loading()">
+        <mat-icon>download</mat-icon>
+        Export JSON
+      </button>
+    }
+    <button mat-flat-button color="primary" (click)="save()" [disabled]="saving() || loading()">
+      <mat-icon>save</mat-icon>
+      Save
+    </button>
+  </div>
 </div>
 
 @if (loading()) {

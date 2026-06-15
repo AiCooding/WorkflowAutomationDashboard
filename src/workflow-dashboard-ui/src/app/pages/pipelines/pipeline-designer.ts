@@ -195,4 +195,24 @@ export class PipelineDesignerPage {
       return [];
     }
   }
+
+  exportPipeline(): void {
+    const id = this.pipelineId();
+    if (!id) {
+      this.snackBar.open('Save the pipeline first before exporting.', 'Dismiss', { duration: 2500 });
+      return;
+    }
+    this.pipelinesApi.exportPipeline(id).subscribe({
+      next: (dto) => {
+        const blob = new Blob([JSON.stringify(dto, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${dto.name.replace(/\s+/g, '-').toLowerCase()}.pipeline.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => this.snackBar.open('Export failed', 'Dismiss', { duration: 3000 }),
+    });
+  }
 }

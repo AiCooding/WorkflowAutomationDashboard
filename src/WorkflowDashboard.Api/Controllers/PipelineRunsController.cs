@@ -172,6 +172,41 @@ public class PipelineRunsController : ControllerBase
         return Ok();
     }
 
+    [HttpPost("{runId}/restart")]
+    public async Task<ActionResult<PipelineRunDto>> Restart(string runId, [FromBody] RestartRunBody body)
+    {
+        if (string.IsNullOrWhiteSpace(body.FromStepId))
+            return BadRequest("fromStepId is required.");
+
+        var run = await _db.PipelineRuns
+            .Include(r => r.Pipeline)
+            .Include(r => r.Feature)
+            .Include(r => r.Repository)
+            .Include(r => r.StepRuns)
+            .Include(r => r.ApprovalRequests)
+            .FirstOrDefaultAsync(r => r.Id == runId);
+
+        if (run is null) return NotFound();
+
+        if (run.Status is not ("cancelled" or "failed"))
+            return BadRequest("Only cancelled or failed runs can be restarted.");
+
+        // Validate that fromStepId exists in the pipeline
+        if (run.Pipeline is null) return BadRequest("Pipeline definition not found.");
+
+        await _orchestrator.RestartRunAsync(runId, body.FromStepId);
+
+        var reloaded = await _db.PipelineRuns
+            .Include(r => r.Pipeline)
+            .Include(r => r.Feature)
+            .Include(r => r.Repository)
+            .Include(r => r.StepRuns)
+            .Include(r => r.ApprovalRequests)
+            .FirstAsync(r => r.Id == runId);
+
+        return Ok(_projector.Project(reloaded));
+    }
+
     [HttpPost("{runId}/steps/{stepRunId}/complete")]
     public async Task<IActionResult> CompleteStep(string runId, string stepRunId, [FromBody] AgentStepCompleteBody? body)
     {
@@ -230,3 +265,4 @@ public record StartPipelineRunBody(
 );
 public record ApprovalDecisionBody(string Decision, string? FeedbackText);
 public record AgentStepCompleteBody(string? Decision, string? FeedbackText);
+public record RestartRunBody(string FromStepId);

@@ -19,7 +19,7 @@ import { FeaturesService } from '../../core/api/features.service';
 import { PipelineRunsService } from '../../core/api/pipeline-runs.service';
 import { PipelinesService } from '../../core/api/pipelines.service';
 import { RepositoriesService } from '../../core/api/repositories.service';
-import { ApprovalRequest, Feature, Pipeline, PipelineRun, PipelineStepDef, PipelineStepRun, Repository, StartPipelineRunBody, computeBranchName } from '../../core/models';
+import { ApprovalRequest, Feature, Pipeline, PipelineExportDto, PipelineRun, PipelineStepDef, PipelineStepRun, Repository, StartPipelineRunBody, computeBranchName } from '../../core/models';
 import { SignalRService } from '../../core/realtime/signalr.service';
 import { StatusStyle, formatDuration } from '../../shared/status-style';
 
@@ -92,6 +92,8 @@ export class PipelinesPage {
     ticketNumber: string;
     branchPrefix: string;
   } | null>(null);
+  readonly restartDialog = signal<{ run: PipelineRun; selectedStepId: string } | null>(null);
+  readonly importingPipeline = signal(false);
 
   readonly pipelineMap = computed(() => new Map(this.pipelines().map((p) => [p.id, p])));
 
@@ -311,6 +313,67 @@ export class PipelinesPage {
         this.snackBar.open('Pipeline deleted', 'Dismiss', { duration: 2000 });
       },
       error: () => this.snackBar.open('Failed to delete pipeline', 'Dismiss', { duration: 3000 }),
+    });
+  }
+
+  importPipeline(event: Event): void {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    (event.target as HTMLInputElement).value = '';
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const dto = JSON.parse(e.target?.result as string) as PipelineExportDto;
+        if (!dto.name) { this.snackBar.open('Invalid pipeline file: missing name.', 'Dismiss', { duration: 3000 }); return; }
+        this.importingPipeline.set(true);
+        this.pipelinesApi.importPipeline(dto).subscribe({
+          next: (created) => {
+            this.importingPipeline.set(false);
+            this.pipelines.update((list) => [this.normalizePipeline(created), ...list]);
+            this.snackBar.open(`Pipeline "${created.name}" imported.`, 'Dismiss', { duration: 2500 });
+          },
+          error: () => {
+            this.importingPipeline.set(false);
+            this.snackBar.open('Import failed', 'Dismiss', { duration: 3000 });
+          },
+        });
+      } catch {
+        this.snackBar.open('Could not parse JSON file.', 'Dismiss', { duration: 3000 });
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  openRestartDialog(run: PipelineRun): void {
+    const steps = this.stepsForRun(run);
+    const firstStepId = steps[0]?.id ?? '';
+    this.restartDialog.set({ run, selectedStepId: firstStepId });
+  }
+
+  setRestartStep(stepId: string): void {
+    this.restartDialog.update((d) => d ? { ...d, selectedStepId: stepId } : null);
+  }
+
+  confirmRestart(): void {
+    const dialog = this.restartDialog();
+    if (!dialog) return;
+    const { run, selectedStepId } = dialog;
+    if (!selectedStepId) return;
+
+    this.busyRunId.set(run.id);
+    this.restartDialog.set(null);
+    this.pipelineRunsApi.restart(run.id, { fromStepId: selectedStepId }).subscribe({
+      next: () => {
+        this.busyRunId.set(null);
+        this.loadRuns();
+        this.snackBar.open('Pipeline restarted', 'Dismiss', { duration: 2500 });
+      },
+      error: (err) => {
+        this.busyRunId.set(null);
+        const message = err?.error?.message ?? err?.message ?? 'Restart failed';
+        this.snackBar.open(message, 'Dismiss', { duration: 4000 });
+      },
     });
   }
 

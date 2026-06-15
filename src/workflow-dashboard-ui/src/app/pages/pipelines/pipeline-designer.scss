@@ -12,6 +12,12 @@
     font-size: 28px;
     font-weight: 400;
   }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
 }
 
 .layout {

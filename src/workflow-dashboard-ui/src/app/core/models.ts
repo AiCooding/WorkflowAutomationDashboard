@@ -332,3 +332,13 @@ export interface ApprovalDecisionBody {
   decision: 'approved' | 'rejected';
   feedbackText?: string | null;
 }
+
+export interface PipelineExportDto {
+  name: string;
+  description?: string | null;
+  stepsJson?: string | null;
+}
+
+export interface RestartRunBody {
+  fromStepId: string;
+}

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { ApprovalDecisionBody, PipelineRun, StartPipelineRunBody } from '../models';
+import { ApprovalDecisionBody, PipelineRun, RestartRunBody, StartPipelineRunBody } from '../models';
 
 @Injectable({ providedIn: 'root' })
 export class PipelineRunsService {
@@ -27,6 +27,10 @@ export class PipelineRunsService {
 
   cancel(runId: string): Observable<void> {
     return this.http.post<void>(`${this.base}/${runId}/cancel`, {});
+  }
+
+  restart(runId: string, body: RestartRunBody): Observable<PipelineRun> {
+    return this.http.post<PipelineRun>(`${this.base}/${runId}/restart`, body);
   }
 
   decide(runId: string, approvalId: string, body: ApprovalDecisionBody): Observable<void> {

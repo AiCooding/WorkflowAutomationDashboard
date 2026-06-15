@@ -4,6 +4,11 @@
     <p class="subtitle">Design orchestration flows and monitor live multi-step runs.</p>
   </div>
   <div class="header-actions">
+    <label mat-stroked-button class="import-label" [class.disabled]="importingPipeline()" matTooltip="Import a pipeline from a JSON file">
+      <mat-icon>upload</mat-icon>
+      @if (importingPipeline()) { Importing… } @else { Import JSON }
+      <input type="file" accept=".json,application/json" hidden (change)="importPipeline($event)" [disabled]="importingPipeline()" />
+    </label>
     <a mat-flat-button color="primary" routerLink="/pipelines/designer">
       <mat-icon>add</mat-icon>
       New Pipeline
@@ -256,6 +261,12 @@
                   Cancel
                 </button>
               }
+              @if (run.status === 'cancelled' || run.status === 'failed') {
+                <button mat-stroked-button color="primary" (click)="openRestartDialog(run)" [disabled]="runBusy(run.id)">
+                  <mat-icon>restart_alt</mat-icon>
+                  Restart from step
+                </button>
+              }
             </div>
           </div>
         </mat-expansion-panel>
@@ -298,6 +309,35 @@
           Create renamed branch
         </button>
         <button mat-button (click)="resolveConflict('cancel')">Cancel</button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+}
+
+<!-- Restart from Step Dialog -->
+@if (restartDialog(); as dialog) {
+  <div class="conflict-overlay">
+    <mat-card class="conflict-dialog">
+      <mat-card-header>
+        <mat-card-title>Restart Pipeline from Step</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p>Select the step to restart from. All steps before it will be skipped.</p>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Start from step</mat-label>
+          <mat-select [ngModel]="dialog.selectedStepId" (ngModelChange)="setRestartStep($event)">
+            @for (step of stepsForRun(dialog.run); track step.id) {
+              <mat-option [value]="step.id">{{ step.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </mat-card-content>
+      <mat-card-actions>
+        <button mat-flat-button color="primary" (click)="confirmRestart()" [disabled]="!dialog.selectedStepId || runBusy(dialog.run.id)">
+          <mat-icon>restart_alt</mat-icon>
+          Restart
+        </button>
+        <button mat-button (click)="restartDialog.set(null)">Cancel</button>
       </mat-card-actions>
     </mat-card>
   </div>

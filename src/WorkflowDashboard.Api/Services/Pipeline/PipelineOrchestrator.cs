@@ -171,6 +171,47 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
         }
     }
 
+    public async Task RestartRunAsync(string pipelineRunId, string fromStepId, CancellationToken ct = default)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<WorkflowDbContext>();
+
+        var run = await db.PipelineRuns
+            .Include(r => r.StepRuns)
+            .FirstOrDefaultAsync(r => r.Id == pipelineRunId, ct);
+        if (run is null) return;
+
+        // Reset step runs from fromStepId onward
+        var pipeline = await db.Pipelines.FindAsync(new object?[] { run.PipelineId }, ct);
+        if (pipeline is null) return;
+
+        var steps = ParseSteps(pipeline.StepsJson);
+        var fromIdx = steps.FindIndex(s => s.Id == fromStepId);
+        if (fromIdx < 0)
+        {
+            _logger.LogWarning("RestartRunAsync: step '{StepId}' not found in pipeline.", fromStepId);
+            return;
+        }
+
+        var stepsToReset = steps.Skip(fromIdx).Select(s => s.Id).ToHashSet();
+        var stepRunsToReset = run.StepRuns.Where(sr => stepsToReset.Contains(sr.StepId)).ToList();
+        foreach (var sr in stepRunsToReset)
+            db.PipelineStepRuns.Remove(sr);
+
+        run.Status = "pending";
+        run.CurrentStepId = fromStepId;
+        run.CompletedAt = null;
+        run.ErrorMessage = null;
+        await db.SaveChangesAsync(ct);
+        await _hub.Clients.All.SendAsync(PipelineHubMethods.PipelineRunUpdated, run, ct);
+
+        _channel.Writer.TryWrite(new OrchestratorMessage
+        {
+            Type = OrchestratorMessageType.StartRun,
+            PipelineRunId = pipelineRunId,
+        });
+    }
+
     public IReadOnlyList<LogLine> GetLogTail(string stepRunId)
     {
         return _running.TryGetValue(stepRunId, out var rp)
@@ -294,13 +335,18 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
             _logger.LogWarning(ex, "Failed to write pipeline input file for run {RunId}.", pipelineRunId);
         }
 
+        // Support restarting from a specific step (CurrentStepId pre-set by RestartRunAsync)
+        var startStep = !string.IsNullOrEmpty(run.CurrentStepId)
+            ? steps.FirstOrDefault(s => s.Id == run.CurrentStepId) ?? steps[0]
+            : steps[0];
+
         run.Status = "running";
-        run.StartedAt = DateTime.UtcNow;
-        run.CurrentStepId = steps[0].Id;
+        run.StartedAt ??= DateTime.UtcNow;
+        run.CurrentStepId = startStep.Id;
         await db.SaveChangesAsync(ct);
         await _hub.Clients.All.SendAsync(PipelineHubMethods.PipelineRunUpdated, run, ct);
 
-        await AdvanceToStepAsync(db, run, steps[0], steps, ct);
+        await AdvanceToStepAsync(db, run, startStep, steps, ct);
     }
 
     private async Task HandleStepCompletedAsync(string stepRunId, string? decision, string? feedbackText, CancellationToken ct)

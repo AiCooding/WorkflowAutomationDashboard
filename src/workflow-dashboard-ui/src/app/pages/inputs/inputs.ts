@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -13,6 +14,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { InputRequestsService } from '../../core/api/input-requests.service';
 import { InputRequest } from '../../core/models';
 import { SignalRService } from '../../core/realtime/signalr.service';
+import { InputConfirmDialogComponent } from './input-confirm-dialog';
 
 interface PendingInput extends InputRequest {
   draft: string;
@@ -29,6 +31,7 @@ interface PendingInput extends InputRequest {
     MatCardModule,
     MatButtonModule,
     MatIconModule,
+    MatDialogModule,
     MatFormFieldModule,
     MatInputModule,
     MatChipsModule,
@@ -42,6 +45,7 @@ export class InputsPage {
   private readonly signalR = inject(SignalRService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
 
   readonly loading = signal(true);
   readonly items = signal<PendingInput[]>([]);
@@ -104,6 +108,19 @@ export class InputsPage {
       this.snackBar.open('Please enter a response', 'Dismiss', { duration: 2000 });
       return;
     }
+
+    const ref = this.dialog.open(InputConfirmDialogComponent, {
+      width: '480px',
+      data: { question: item.question, response },
+    });
+
+    ref.afterClosed().subscribe((confirmed: boolean) => {
+      if (!confirmed) return;
+      this.doSubmit(item, response);
+    });
+  }
+
+  private doSubmit(item: PendingInput, response: string): void {
     this.items.update((list) => list.map((i) => (i.id === item.id ? { ...i, submitting: true } : i)));
 
     this.api.answer(item.id, { response }).subscribe({

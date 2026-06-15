@@ -75,6 +75,41 @@ public class PipelinesController : ControllerBase
         await _db.SaveChangesAsync();
         return NoContent();
     }
+
+    [HttpGet("{id}/export")]
+    public async Task<IActionResult> Export(string id)
+    {
+        var pipeline = await _db.Pipelines.FindAsync(id);
+        if (pipeline is null) return NotFound();
+
+        var export = new PipelineExportDto(
+            pipeline.Name,
+            pipeline.Description,
+            pipeline.StepsJson);
+
+        return new JsonResult(export);
+    }
+
+    [HttpPost("import")]
+    public async Task<ActionResult<Pipeline>> Import([FromBody] PipelineExportDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            return BadRequest("Pipeline name is required.");
+
+        var pipeline = new Pipeline
+        {
+            Id = Guid.NewGuid().ToString("N")[..12],
+            Name = dto.Name.Trim(),
+            Description = dto.Description,
+            StepsJson = string.IsNullOrWhiteSpace(dto.StepsJson) ? "{}" : dto.StepsJson,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+        _db.Pipelines.Add(pipeline);
+        await _db.SaveChangesAsync();
+        return CreatedAtAction(nameof(GetById), new { id = pipeline.Id }, pipeline);
+    }
 }
 
 public record CreatePipelineBody(string Name, string? Description, string? StepsJson);
+public record PipelineExportDto(string Name, string? Description, string? StepsJson);
