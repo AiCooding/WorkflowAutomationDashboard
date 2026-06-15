@@ -23,3 +23,7 @@ nav_links:
     url: /WorkflowAutomationDashboard/input-requests
   - title: Workflow Runs
     url: /WorkflowAutomationDashboard/runs
+  - title: How It Works
+    url: /WorkflowAutomationDashboard/how-it-works
+  - title: Configuration
+    url: /WorkflowAutomationDashboard/configuration

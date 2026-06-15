@@ -20,6 +20,8 @@ Welcome to the help documentation for the **Workflow Automation Dashboard** — 
 | [Features](features) | Track feature items and attach spec documents |
 | [Input Requests](input-requests) | Answer questions raised by a running agent |
 | [Workflow Runs](runs) | Legacy standalone workflow run monitor |
+| [How It Works](how-it-works) | Full technical walkthrough — Copilot CLI wiring, files, completion protocol |
+| [Configuration](configuration) | `appsettings.json` reference for all server settings |
 
 ---
 

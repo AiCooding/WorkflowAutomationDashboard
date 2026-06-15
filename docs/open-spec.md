@@ -14,7 +14,7 @@ There is also no control mechanism to start, pause, cancel, or retry workflows f
 
 ### 1.2 Solution
 
-A self-hosted web dashboard that provides real-time monitoring and control of AI agent workflows. It runs as a Docker container and exposes a REST API that agents call to report their state.
+A self-hosted web dashboard that provides real-time monitoring and control of AI agent workflows. It runs as a .NET 10 web application and exposes a REST API that agents call to report their state.
 
 ### 1.3 Goals
 
@@ -22,7 +22,7 @@ A self-hosted web dashboard that provides real-time monitoring and control of AI
 - **Control**: Start new workflows, pause, resume, cancel, or retry from the UI
 - **Notifications**: Browser push notifications when workflows need user input
 - **Decoupled**: Agents communicate via REST API (no direct DB coupling)
-- **Self-contained**: Single Docker image, single `docker compose up`
+- **Self-contained**: Single .NET executable — run with `dotnet run` or publish as a self-contained binary
 
 ### 1.4 Non-Goals (for v1)
 
@@ -38,26 +38,22 @@ A self-hosted web dashboard that provides real-time monitoring and control of AI
 ### 2.1 System Diagram
 
 ```
-┌─── Docker ──────────────────────────────────┐
-│                                              │
-│  ┌────────────────────────────────────────┐  │
-│  │  ASP.NET Core 10 Container             │  │
-│  │  - Serves Angular 21 static files      │  │
-│  │  - REST API  (configurable port)       │  │
-│  │  - SignalR Hub (real-time push)         │  │
-│  │  - Background polling service          │  │
-│  └───────────────┬────────────────────────┘  │
+┌──────────────────────────────────────────────┐
+│  ASP.NET Core 10 Application (host machine)  │
+│  - Serves Angular 21 static files            │
+│  - REST API  (configurable port)             │
+│  - SignalR Hub (real-time push)               │
+│  - Background pipeline orchestrator          │
 │                  │                            │
 │                  ▼                            │
-│         /data/workflow.db  (volume)           │
-│                                              │
-└──────────────────────────────────────────────┘
+│            workflow.db  (SQLite)              │
+└──────────────────┬───────────────────────────┘
         ▲                          ▲
         │ REST API                 │ Browser (SignalR + HTTP)
         │                          │
 ┌───────┴────────┐        ┌───────┴────────┐
 │ Copilot Agents │        │ User Browser   │
-│ (host machine) │        │ localhost:5080 │
+│ (host machine) │        │ localhost:5000 │
 └────────────────┘        └────────────────┘
 ```
 
@@ -69,7 +65,6 @@ A self-hosted web dashboard that provides real-time monitoring and control of AI
 | Frontend | Angular + TypeScript | Angular 21 |
 | Real-time | SignalR | (bundled with ASP.NET Core) |
 | Database | SQLite via EF Core | latest |
-| Containerization | Docker + Docker Compose | latest |
 | UI Components | Angular Material | v21 (matching Angular) |
 
 ### 2.3 Communication Patterns
@@ -308,7 +303,7 @@ Activity log for the real-time event stream.
 }
 ```
 
-`Specs:RootDir` is the directory (relative to ContentRoot, or absolute) where the dashboard writes the markdown spec files produced by `feature-spec` workflows. Defaults to `docs/features` so files live alongside the rest of the repo's documentation and are committable to git. In Docker, the directory is bind-mounted from the host.
+`Specs:RootDir` is the directory (relative to ContentRoot, or absolute) where the dashboard writes the markdown spec files produced by `feature-spec` workflows. Defaults to `docs/features` so files live alongside the rest of the repo's documentation and are committable to git.
 
 ### 6.2 Environment Variable Overrides
 
@@ -362,28 +357,26 @@ All settings can be overridden via environment variables in docker-compose:
 14. **Control panel** — Start/cancel/pause workflows
 15. **Event log** — Filterable real-time stream
 
-### Phase 4: Integration & Docker
+### Phase 4: Integration
 16. **WorkflowClient shared library** — Helper class agents use to call the API
-17. **Dockerfile** — Multi-stage build
-18. **docker-compose.yml** — Full configuration
-19. **Integration testing** — End-to-end workflow: start → agent reports → input → answer → complete
-20. **README** — Setup instructions, API docs, usage guide
+17. **Integration testing** — End-to-end workflow: start → agent reports → input → answer → complete
+18. **README** — Setup instructions, API docs, usage guide
 
 ---
 
-## 9. Success Criteria
+## 8. Success Criteria
 
-- [ ] `docker compose up` starts the dashboard, accessible at `localhost:5080`
+- [ ] `dotnet run` starts the dashboard, accessible at `localhost:5000`
 - [ ] Angular UI shows real-time agent/workflow state updates
 - [ ] Agents can register, report status, and request input via REST API
 - [ ] User can answer input requests in the browser
 - [ ] User can start/cancel workflows from the control panel
 - [ ] Browser notifications fire when input is requested
-- [ ] All state survives container restarts (volume-mounted SQLite)
+- [ ] All state survives application restarts (SQLite persisted on disk)
 
 ---
 
-## 10. Workflow Types
+## 9. Workflow Types
 
 The dashboard hosts multiple flavours of workflow. New types can be added at any time — the `type` field is a free-form string so agents and the UI can collaborate on whatever conventions make sense.
 
@@ -450,7 +443,7 @@ The original workflow type. Started against an existing feature (typically one t
 
 ---
 
-## 11. Future Enhancements (out of scope for v1)
+## 10. Future Enhancements (out of scope for v1)
 
 - Authentication (JWT/OAuth)
 - GitHub Issues/PR integration
