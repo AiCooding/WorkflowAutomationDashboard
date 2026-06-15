@@ -2,7 +2,6 @@
   <div>
     <h1>Agents</h1>
     <p class="subtitle">
-      Discovered from <code>~/.copilot/agents/</code>.
       Read-only — edit the files on disk and click Refresh.
     </p>
   </div>
@@ -11,6 +10,13 @@
     {{ loading() ? 'Loading…' : 'Refresh' }}
   </button>
 </div>
+
+@if (settings.agentsDirConfigured() === false) {
+  <div class="info-banner">
+    <mat-icon>info</mat-icon>
+    <span>No agents folder configured. <a routerLink="/settings">Set it up in Settings</a> before agents can be discovered.</span>
+  </div>
+}
 
 @if (loading()) {
   <div class="loading-row"><mat-spinner diameter="32"></mat-spinner></div>

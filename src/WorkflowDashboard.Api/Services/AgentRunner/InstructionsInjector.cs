@@ -1,5 +1,4 @@
 using System.Text;
-using Microsoft.Extensions.Options;
 using WorkflowDashboard.Api.Models;
 using WorkflowDashboard.Api.Services.Pipeline;
 using WorkflowDashboard.Api.Services.Repositories;
@@ -8,20 +7,20 @@ namespace WorkflowDashboard.Api.Services.AgentRunner;
 
 public sealed class InstructionsInjector
 {
-    private readonly AgentRunnerOptions _options;
+    private readonly IAgentRunnerSettingsProvider _provider;
     private readonly ILogger<InstructionsInjector> _logger;
 
     public InstructionsInjector(
-        IOptions<AgentRunnerOptions> options,
+        IAgentRunnerSettingsProvider provider,
         ILogger<InstructionsInjector> logger)
     {
-        _options = options.Value;
+        _provider = provider;
         _logger = logger;
     }
 
     public string? ResolveTargetPath(Repository repo)
     {
-        return RepositoryPathHelper.TryResolveInside(repo, _options.InstructionsRelativePath);
+        return RepositoryPathHelper.TryResolveInside(repo, _provider.GetEffective().InstructionsRelativePath);
     }
 
     /// <summary>
@@ -39,7 +38,7 @@ public sealed class InstructionsInjector
     {
         var target = ResolveTargetPath(repo)
             ?? throw new InvalidOperationException(
-                $"Instructions path '{_options.InstructionsRelativePath}' resolves outside repo '{repo.Path}'.");
+                $"Instructions path '{_provider.GetEffective().InstructionsRelativePath}' resolves outside repo '{repo.Path}'.");
 
         var dir = Path.GetDirectoryName(target);
         if (!string.IsNullOrEmpty(dir))

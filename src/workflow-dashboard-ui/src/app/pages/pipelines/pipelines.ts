@@ -19,6 +19,7 @@ import { FeaturesService } from '../../core/api/features.service';
 import { PipelineRunsService } from '../../core/api/pipeline-runs.service';
 import { PipelinesService } from '../../core/api/pipelines.service';
 import { RepositoriesService } from '../../core/api/repositories.service';
+import { SettingsService } from '../../core/api/settings.service';
 import { ApprovalRequest, Feature, Pipeline, PipelineExportDto, PipelineRun, PipelineStepDef, PipelineStepRun, Repository, StartPipelineRunBody, computeBranchName } from '../../core/models';
 import { SignalRService } from '../../core/realtime/signalr.service';
 import { StatusStyle, formatDuration } from '../../shared/status-style';
@@ -75,6 +76,7 @@ export class PipelinesPage {
   private readonly snackBar = inject(MatSnackBar);
   private readonly destroyRef = inject(DestroyRef);
   readonly styles = inject(StatusStyle);
+  protected readonly settingsStatus = inject(SettingsService);
 
   readonly loading = signal(true);
   readonly pipelines = signal<Pipeline[]>([]);
@@ -98,6 +100,7 @@ export class PipelinesPage {
   readonly pipelineMap = computed(() => new Map(this.pipelines().map((p) => [p.id, p])));
 
   constructor() {
+    this.settingsStatus.loadStatusIfNeeded();
     this.reload();
 
     this.signalR.pipelineRunUpdated$

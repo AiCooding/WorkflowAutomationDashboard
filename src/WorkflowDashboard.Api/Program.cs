@@ -24,11 +24,13 @@ builder.Services.AddSignalR().AddJsonProtocol(o =>
 builder.Services.Configure<CatalogOptions>(builder.Configuration.GetSection(CatalogOptions.SectionName));
 builder.Services.AddSingleton<ICatalogStore, CatalogStore>();
 builder.Services.AddSingleton<MarkdownRenderer>();
+builder.Services.AddSingleton<ICatalogSettingsProvider, CatalogSettingsProvider>();
 builder.Services.AddScoped<CatalogScanner>();
 builder.Services.AddSingleton<CatalogStartupScanner>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<CatalogStartupScanner>());
 
 builder.Services.Configure<AgentRunnerOptions>(builder.Configuration.GetSection(AgentRunnerOptions.SectionName));
+builder.Services.AddSingleton<IAgentRunnerSettingsProvider, AgentRunnerSettingsProvider>();
 builder.Services.AddSingleton<IProcessLauncher, ProcessLauncher>();
 builder.Services.AddSingleton<IGitService, GitService>();
 builder.Services.AddSingleton<InstructionsInjector>();

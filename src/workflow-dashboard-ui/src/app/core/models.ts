@@ -342,3 +342,20 @@ export interface PipelineExportDto {
 export interface RestartRunBody {
   fromStepId: string;
 }
+
+export type CliTool = 'Copilot' | 'Claude' | 'Custom';
+
+export interface AppSettingsDto {
+  cliTool: CliTool;
+  executable: string;
+  extraArgs: string[];
+  instructionsRelativePath: string;
+  inputFileRelativePath: string;
+  interactiveTerminal: boolean;
+  interactiveStartPrompt: string;
+  enabled: boolean;
+  agentsDir?: string | null;
+}
+
+/** @deprecated Use AppSettingsDto */
+export type AgentRunnerSettingsDto = AppSettingsDto;

@@ -50,6 +50,24 @@
   padding: 1px 8px !important;
 }
 
+.info-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  background: rgba(37, 99, 235, 0.08);
+  color: #1d4ed8;
+  border-radius: 8px;
+  font-size: 13px;
+
+  a {
+    color: inherit;
+    font-weight: 500;
+  }
+}
+
+
 .broken-banner {
   display: flex;
   align-items: center;

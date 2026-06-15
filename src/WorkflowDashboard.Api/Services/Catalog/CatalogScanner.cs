@@ -1,5 +1,4 @@
 using System.Text;
-using Microsoft.Extensions.Options;
 using WorkflowDashboard.Api.Models;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -15,26 +14,40 @@ namespace WorkflowDashboard.Api.Services.Catalog;
 public sealed class CatalogScanner
 {
     private readonly ICatalogStore _store;
-    private readonly CatalogOptions _options;
+    private readonly ICatalogSettingsProvider _settings;
     private readonly ILogger<CatalogScanner> _logger;
 
     public CatalogScanner(
         ICatalogStore store,
-        IOptions<CatalogOptions> options,
+        ICatalogSettingsProvider settings,
         ILogger<CatalogScanner> logger)
     {
         _store = store;
-        _options = options.Value;
+        _settings = settings;
         _logger = logger;
     }
 
-    public string WorkflowsDir => string.IsNullOrWhiteSpace(_options.WorkflowsDir)
-        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".copilot", "workflows")
-        : _options.WorkflowsDir;
+    public string WorkflowsDir
+    {
+        get
+        {
+            var dir = _settings.GetEffective().WorkflowsDir;
+            return string.IsNullOrWhiteSpace(dir)
+                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".copilot", "workflows")
+                : dir;
+        }
+    }
 
-    public string AgentsDir => string.IsNullOrWhiteSpace(_options.AgentsDir)
-        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".copilot", "agents")
-        : _options.AgentsDir;
+    public string AgentsDir
+    {
+        get
+        {
+            var dir = _settings.GetEffective().AgentsDir;
+            return string.IsNullOrWhiteSpace(dir)
+                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".copilot", "agents")
+                : dir;
+        }
+    }
 
     /// <summary>
     /// Rescan both directories and replace the store contents.

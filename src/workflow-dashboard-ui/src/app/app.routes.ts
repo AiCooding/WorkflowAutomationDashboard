@@ -9,5 +9,6 @@ export const routes: Routes = [
   { path: 'pipelines/designer/:id', loadComponent: () => import('./pages/pipelines/pipeline-designer').then(m => m.PipelineDesignerPage), title: 'Pipeline Designer — Workflow Dashboard' },
   { path: 'agents', loadComponent: () => import('./pages/agents/agents').then(m => m.AgentsPage), title: 'Agents — Workflow Dashboard' },
   { path: 'control', loadComponent: () => import('./pages/control/control').then(m => m.ControlPage), title: 'Control — Workflow Dashboard' },
+  { path: 'settings', loadComponent: () => import('./pages/settings/settings').then(m => m.SettingsPage), title: 'Settings — Workflow Dashboard' },
   { path: '**', redirectTo: '' },
 ];

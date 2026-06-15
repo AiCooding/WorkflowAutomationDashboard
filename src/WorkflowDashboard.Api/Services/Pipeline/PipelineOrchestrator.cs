@@ -427,7 +427,7 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
             {
                 try
                 {
-                    var inputPath = WorkflowInputWriter.GetPath(run.Repository);
+                    var inputPath = _inputWriter.GetPath(run.Repository);
                     await _inputWriter.AppendSection(inputPath, currentStepDef.Id, stepRun.AttemptNumber,
                         stepRun.AgentSlug ?? "agent", returnToStep.Id, feedbackText);
                 }
@@ -553,7 +553,7 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
             {
                 try
                 {
-                    var inputPath = WorkflowInputWriter.GetPath(run.Repository);
+                    var inputPath = _inputWriter.GetPath(run.Repository);
                     await _inputWriter.AppendSection(inputPath, approval.StepId, 0, "user-feedback", returnToStep.Id, approval.FeedbackText);
                 }
                 catch (Exception ex)
@@ -640,7 +640,7 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
             }
         }
 
-        var inputFilePath = WorkflowInputWriter.GetPath(run.Repository!);
+        var inputFilePath = _inputWriter.GetPath(run.Repository!);
         var apiBaseUrl = GetApiBaseUrl();
         try
         {

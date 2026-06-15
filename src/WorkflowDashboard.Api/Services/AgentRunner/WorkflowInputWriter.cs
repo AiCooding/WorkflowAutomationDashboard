@@ -5,18 +5,24 @@ namespace WorkflowDashboard.Api.Services.AgentRunner;
 
 public sealed class WorkflowInputWriter
 {
-    private const string RelativePath = ".github/copilot/workflow-input.md";
     private static readonly SemaphoreSlim _fileLock = new(1, 1);
 
+    private readonly IAgentRunnerSettingsProvider _provider;
     private readonly ILogger<WorkflowInputWriter> _logger;
 
-    public WorkflowInputWriter(ILogger<WorkflowInputWriter> logger)
+    public WorkflowInputWriter(
+        IAgentRunnerSettingsProvider provider,
+        ILogger<WorkflowInputWriter> logger)
     {
+        _provider = provider;
         _logger = logger;
     }
 
-    public static string GetPath(Repository repo) =>
-        Path.Combine(repo.Path, ".github", "copilot", "workflow-input.md");
+    public string GetPath(Repository repo)
+    {
+        var relativePath = _provider.GetEffective().InputFileRelativePath;
+        return Path.Combine(repo.Path, relativePath.Replace('/', Path.DirectorySeparatorChar));
+    }
 
     /// <summary>
     /// Writes the initial pipeline input file (called at pipeline run start).

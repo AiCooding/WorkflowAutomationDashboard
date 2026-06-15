@@ -13,6 +13,7 @@ public class WorkflowDbContext : DbContext
     public DbSet<PipelineRun> PipelineRuns => Set<PipelineRun>();
     public DbSet<PipelineStepRun> PipelineStepRuns => Set<PipelineStepRun>();
     public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();
+    public DbSet<AgentRunnerSettings> AgentRunnerSettings => Set<AgentRunnerSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -83,6 +84,11 @@ public class WorkflowDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(a => a.StepRunId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AgentRunnerSettings>(e =>
+        {
+            e.HasKey(s => s.Id);
         });
     }
 }

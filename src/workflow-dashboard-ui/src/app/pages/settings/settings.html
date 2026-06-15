@@ -1,0 +1,130 @@
+<div class="page-header">
+  <h1>Settings</h1>
+  @if (!loading()) {
+    <div class="header-actions">
+      <button mat-stroked-button (click)="reset()" [disabled]="saving()">
+        <mat-icon>restore</mat-icon>
+        Reset to defaults
+      </button>
+      <button mat-flat-button color="primary" (click)="save()" [disabled]="saving()">
+        @if (saving()) {
+          <mat-spinner diameter="18" />
+        } @else {
+          <mat-icon>save</mat-icon>
+        }
+        Save
+      </button>
+    </div>
+  }
+</div>
+
+<div class="settings-sections">
+
+  @if (loading()) {
+    <div class="loading-row">
+      <mat-spinner diameter="32" />
+    </div>
+  } @else {
+
+    <mat-card appearance="outlined">
+      <div class="card-header">
+        <mat-icon>folder_open</mat-icon>
+        <div>
+          <h3>Agent Catalog</h3>
+          <p>Where agent definition files are loaded from</p>
+        </div>
+      </div>
+
+      <div class="form-fields">
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Agents Folder</mat-label>
+          <input matInput [(ngModel)]="form.agentsDir" placeholder="e.g. C:\Users\<user>\.copilot\agents" />
+          <mat-hint>Absolute path to the folder containing agent <code>.md</code> files.</mat-hint>
+        </mat-form-field>
+
+        <p class="info-text">
+          <mat-icon class="info-icon">info</mat-icon>
+          After changing this path, use the <strong>Refresh</strong> button on the Agents page to rescan.
+        </p>
+
+      </div>
+    </mat-card>
+
+    <mat-card appearance="outlined">
+      <div class="card-header">
+        <mat-icon>smart_toy</mat-icon>
+        <div>
+          <h3>Agent Runner</h3>
+          <p>Which CLI tool is launched when a pipeline step starts</p>
+        </div>
+      </div>
+
+      <div class="form-fields">
+
+        <mat-slide-toggle [(ngModel)]="form.enabled" color="primary">
+          Runner enabled
+        </mat-slide-toggle>
+
+        <mat-divider />
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>CLI Tool</mat-label>
+          <mat-select [(ngModel)]="form.cliTool" (ngModelChange)="onToolChange($event)">
+            @for (tool of tools; track tool) {
+              <mat-option [value]="tool">{{ tool }}</mat-option>
+            }
+          </mat-select>
+          <mat-hint>Changing the tool auto-fills the fields below with sensible defaults.</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Executable</mat-label>
+          <input matInput [(ngModel)]="form.executable" placeholder="e.g. copilot or claude" />
+          <mat-hint>Bare name (PATH-resolved) or absolute path to the CLI binary.</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Extra Arguments (one per line)</mat-label>
+          <textarea matInput rows="3" [(ngModel)]="extraArgsText" placeholder="Optional extra arguments..."></textarea>
+          <mat-hint>Prepended before the tool-specific flags. Leave empty for most setups.</mat-hint>
+        </mat-form-field>
+
+        <mat-divider />
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Instructions File Path (relative to repo)</mat-label>
+          <input matInput [(ngModel)]="form.instructionsRelativePath" />
+          <mat-hint>
+            Copilot: <code>.github/instructions/active-workflow.instructions.md</code> &nbsp;|&nbsp;
+            Claude: <code>CLAUDE.md</code>
+          </mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Input File Path (relative to repo)</mat-label>
+          <input matInput [(ngModel)]="form.inputFileRelativePath" />
+          <mat-hint>
+            Copilot: <code>.github/copilot/workflow-input.md</code> &nbsp;|&nbsp;
+            Claude: <code>.claude/workflow-input.md</code>
+          </mat-hint>
+        </mat-form-field>
+
+        <mat-divider />
+
+        <mat-slide-toggle [(ngModel)]="form.interactiveTerminal" color="primary">
+          Open interactive terminal window
+        </mat-slide-toggle>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Interactive Start Prompt</mat-label>
+          <textarea matInput rows="3" [(ngModel)]="form.interactiveStartPrompt"></textarea>
+          <mat-hint>The initial message sent to the agent when the terminal opens.</mat-hint>
+        </mat-form-field>
+
+      </div>
+    </mat-card>
+
+  }
+
+</div>

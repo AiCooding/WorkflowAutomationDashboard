@@ -19,6 +19,13 @@
   </div>
 </div>
 
+@if (settingsStatus.agentsDirConfigured() === false) {
+  <div class="info-banner">
+    <mat-icon>info</mat-icon>
+    <span>Configure the agents folder in <a routerLink="/settings">Settings</a> before creating pipelines — it's needed to discover agent definitions.</span>
+  </div>
+}
+
 @if (loading()) {
   <div class="loading-row"><mat-spinner diameter="32"></mat-spinner></div>
 } @else {

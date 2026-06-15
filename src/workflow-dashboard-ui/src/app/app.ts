@@ -57,6 +57,7 @@ export class App {
     { label: 'Repositories', route: '/repositories', icon: 'folder' },
     { label: 'Agents', route: '/agents', icon: 'smart_toy' },
     { label: 'Features', route: '/features', icon: 'inventory_2' },
+    { label: 'Settings', route: '/settings', icon: 'settings' },
   ];
 
   constructor() {

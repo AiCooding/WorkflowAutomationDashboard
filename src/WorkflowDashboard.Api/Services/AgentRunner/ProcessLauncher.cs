@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using Microsoft.Extensions.Options;
 using WorkflowDashboard.Api.Models;
 
 namespace WorkflowDashboard.Api.Services.AgentRunner;
@@ -11,11 +10,11 @@ public interface IProcessLauncher
 
 public sealed class ProcessLauncher : IProcessLauncher
 {
-    private readonly AgentRunnerOptions _options;
+    private readonly IAgentRunnerSettingsProvider _provider;
 
-    public ProcessLauncher(IOptions<AgentRunnerOptions> options)
+    public ProcessLauncher(IAgentRunnerSettingsProvider provider)
     {
-        _options = options.Value;
+        _provider = provider;
     }
 
     public Process Start(PipelineStepRun stepRun, PipelineRun run, Repository repo, string apiBaseUrl)
@@ -31,32 +30,40 @@ public sealed class ProcessLauncher : IProcessLauncher
             ["FEATURE_ID"] = run.FeatureId ?? string.Empty,
         };
 
-        ProcessStartInfo psi = _options.InteractiveTerminal
-            ? BuildInteractivePsi(repo, envVars)
-            : BuildHeadlessPsi(repo, envVars);
+        var opts = _provider.GetEffective();
+
+        ProcessStartInfo psi = opts.InteractiveTerminal
+            ? BuildInteractivePsi(repo, envVars, opts)
+            : BuildHeadlessPsi(repo, envVars, opts);
 
         var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
         process.Start();
         return process;
     }
 
-    private ProcessStartInfo BuildInteractivePsi(Repository repo, Dictionary<string, string> envVars)
+    private static ProcessStartInfo BuildInteractivePsi(
+        Repository repo,
+        Dictionary<string, string> envVars,
+        AgentRunnerOptions opts)
     {
         var sets = string.Join(" && ", envVars.Select(kv => $"set {kv.Key}={kv.Value}"));
 
-        var copilotCmd = _options.CopilotExecutable;
-        var extraArgs = string.Join(" ", _options.CopilotArgs.Select(a => $"\"{a}\""));
+        var parts = new List<string> { opts.Executable };
 
-        var copilotParts = new List<string> { copilotCmd };
-        if (!string.IsNullOrEmpty(extraArgs)) copilotParts.Add(extraArgs);
-        if (!string.IsNullOrWhiteSpace(_options.InteractiveStartPrompt))
-            copilotParts.Add($"-i \"{EscapeForCmd(_options.InteractiveStartPrompt)}\"");
-        copilotParts.Add("--allow-all-tools");
+        foreach (var arg in opts.ExtraArgs)
+            parts.Add($"\"{arg}\"");
 
-        var fullCmd = string.Join(" ", copilotParts);
+        if (!string.IsNullOrWhiteSpace(opts.InteractiveStartPrompt))
+            parts.Add(BuildPromptFlag(opts.CliTool, opts.InteractiveStartPrompt));
+
+        foreach (var flag in GetToolFlags(opts.CliTool))
+            parts.Add(flag);
+
+        var fullCmd = string.Join(" ", parts);
         var repoName = Path.GetFileName(repo.Path.TrimEnd(Path.DirectorySeparatorChar));
+        var toolName = opts.CliTool.ToString();
 
-        var cmdBody = $"title Copilot - {repoName} && {sets} && cd /d \"{repo.Path}\" && {fullCmd}";
+        var cmdBody = $"title {toolName} - {repoName} && {sets} && cd /d \"{repo.Path}\" && {fullCmd}";
 
         return new ProcessStartInfo
         {
@@ -67,13 +74,28 @@ public sealed class ProcessLauncher : IProcessLauncher
         };
     }
 
+    private static string BuildPromptFlag(CliTool tool, string prompt) => tool switch
+    {
+        CliTool.Claude => $"-p \"{EscapeForCmd(prompt)}\"",
+        _ => $"-i \"{EscapeForCmd(prompt)}\"",
+    };
+
+    private static IEnumerable<string> GetToolFlags(CliTool tool) => tool switch
+    {
+        CliTool.Copilot => ["--allow-all-tools"],
+        _ => [],
+    };
+
     private static string EscapeForCmd(string s) => s.Replace("\"", "\\\"");
 
-    private ProcessStartInfo BuildHeadlessPsi(Repository repo, Dictionary<string, string> envVars)
+    private static ProcessStartInfo BuildHeadlessPsi(
+        Repository repo,
+        Dictionary<string, string> envVars,
+        AgentRunnerOptions opts)
     {
         var psi = new ProcessStartInfo
         {
-            FileName = _options.CopilotExecutable,
+            FileName = opts.Executable,
             WorkingDirectory = repo.Path,
             UseShellExecute = false,
             CreateNoWindow = true,
@@ -81,7 +103,7 @@ public sealed class ProcessLauncher : IProcessLauncher
             RedirectStandardError = true,
             RedirectStandardInput = false,
         };
-        foreach (var arg in _options.CopilotArgs)
+        foreach (var arg in opts.ExtraArgs)
             psi.ArgumentList.Add(arg);
         foreach (var kv in envVars)
             psi.Environment[kv.Key] = kv.Value;

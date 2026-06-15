@@ -9,6 +9,7 @@ import { MatListModule } from '@angular/material/list';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { CatalogService } from '../../core/api/catalog.service';
+import { SettingsService } from '../../core/api/settings.service';
 import { CatalogEntry } from '../../core/models';
 
 @Component({
@@ -29,6 +30,7 @@ import { CatalogEntry } from '../../core/models';
 })
 export class AgentsPage {
   private readonly catalog = inject(CatalogService);
+  protected readonly settings = inject(SettingsService);
 
   readonly loading = signal(true);
   readonly all = signal<CatalogEntry[]>([]);
@@ -37,6 +39,7 @@ export class AgentsPage {
   readonly brokenCount = computed(() => this.agents().filter((e) => e.isBroken).length);
 
   constructor() {
+    this.settings.loadStatusIfNeeded();
     this.load();
   }
 
