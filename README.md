@@ -73,6 +73,75 @@ rm src/WorkflowDashboard.Api/workflow.db*
 
 ---
 
+## Deployment
+
+Publishing produces a self-contained single-file executable that bundles the API **and** serves the Angular frontend from its `wwwroot/` folder. No separate Node.js process or `npm start` is needed.
+
+### Build and publish
+
+Run the appropriate command from the repository root. The Angular frontend is built automatically as part of the publish step (requires Node.js on the build machine).
+
+```bash
+# Windows (x64)
+dotnet publish src/WorkflowDashboard.Api -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish
+
+# macOS — Intel (x64)
+dotnet publish src/WorkflowDashboard.Api -c Release -r osx-x64 --self-contained true -p:PublishSingleFile=true -o ./publish
+
+# macOS — Apple Silicon (ARM64)
+dotnet publish src/WorkflowDashboard.Api -c Release -r osx-arm64 --self-contained true -p:PublishSingleFile=true -o ./publish
+
+# Linux (x64)
+dotnet publish src/WorkflowDashboard.Api -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o ./publish
+```
+
+### Running the published executable
+
+```bash
+# Windows
+./publish/WorkflowDashboard.Api.exe
+
+# macOS / Linux (make executable first if needed)
+chmod +x ./publish/WorkflowDashboard.Api
+./publish/WorkflowDashboard.Api
+```
+
+The app listens on `http://localhost:5000` by default. Open that URL in a browser — the Angular frontend is served directly by the API.
+
+### Publish output layout
+
+```
+publish/
+├── WorkflowDashboard.Api(.exe)   # Single self-contained executable
+├── workflow.db                   # SQLite database (created on first run)
+└── wwwroot/                      # Angular frontend static files (excluded from exe bundle)
+    ├── index.html
+    └── ...
+```
+
+> **Note:** The `wwwroot/` folder must stay next to the executable — ASP.NET Core reads static files from disk.
+
+### Configuration
+
+Copy `src/WorkflowDashboard.Api/appsettings.json` next to the executable and adjust as needed:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `ApiBaseUrl` | `http://localhost:5000` | URL agents use to call back the API. Change this if you bind to a different port or hostname. |
+| `ConnectionStrings.WorkflowDb` | `Data Source=workflow.db` | Path to the SQLite database file. |
+| `Catalog.WorkflowsDir` | `null` | Absolute path to your workflows directory. |
+| `Catalog.AgentsDir` | `null` | Absolute path to your agent definitions directory. |
+
+To bind to a different port:
+
+```bash
+ASPNETCORE_URLS=http://localhost:8080 ./publish/WorkflowDashboard.Api
+```
+
+Remember to update `ApiBaseUrl` in `appsettings.json` to match.
+
+---
+
 ## Project layout
 
 ```

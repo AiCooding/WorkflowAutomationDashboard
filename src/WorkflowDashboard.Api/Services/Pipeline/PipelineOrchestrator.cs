@@ -2,6 +2,8 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Threading.Channels;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -43,6 +45,7 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
     private readonly WorkflowInputWriter _inputWriter;
     private readonly ICatalogStore _catalog;
     private readonly IConfiguration _configuration;
+    private readonly IServer _server;
     private readonly ILogger<PipelineOrchestrator> _logger;
 
     public PipelineOrchestrator(
@@ -54,6 +57,7 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
         WorkflowInputWriter inputWriter,
         ICatalogStore catalog,
         IConfiguration configuration,
+        IServer server,
         ILogger<PipelineOrchestrator> logger)
     {
         _options = options.Value;
@@ -64,7 +68,53 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
         _inputWriter = inputWriter;
         _catalog = catalog;
         _configuration = configuration;
+        _server = server;
         _logger = logger;
+    }
+
+    private string GetApiBaseUrl()
+    {
+        var addresses = _server.Features.Get<IServerAddressesFeature>()?.Addresses;
+        if (addresses is { Count: > 0 })
+        {
+            var preferred = addresses.FirstOrDefault(a => a.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+                         ?? addresses.First();
+            return NormalizeAddress(preferred);
+        }
+
+        var configured = _configuration["ApiBaseUrl"] ?? "http://localhost:5000";
+        _logger.LogWarning(
+            "Could not detect server address dynamically; falling back to configured ApiBaseUrl '{Url}'. " +
+            "If agents cannot connect, verify 'ApiBaseUrl' in appsettings.json matches the actual listening port.",
+            configured);
+        return configured;
+    }
+
+    private static string NormalizeAddress(string address) =>
+        address
+            .Replace("://+:", "://localhost:", StringComparison.OrdinalIgnoreCase)
+            .Replace("://0.0.0.0:", "://localhost:", StringComparison.OrdinalIgnoreCase)
+            .Replace("://[::]:", "://localhost:", StringComparison.OrdinalIgnoreCase)
+            .TrimEnd('/');
+
+    private async Task ValidateApiReachabilityAsync(CancellationToken ct)
+    {
+        var apiBaseUrl = GetApiBaseUrl();
+        _logger.LogInformation("PipelineOrchestrator: agents will use API base URL '{Url}'.", apiBaseUrl);
+
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+        try
+        {
+            await http.GetAsync(apiBaseUrl, ct);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            _logger.LogError(
+                "PipelineOrchestrator: API is not reachable at '{Url}'. " +
+                "Agents will fail to report progress. " +
+                "Verify that 'ApiBaseUrl' in appsettings.json matches the port the server is listening on.",
+                apiBaseUrl);
+        }
     }
 
     public Task StartRunAsync(string pipelineRunId, CancellationToken ct = default)
@@ -150,6 +200,8 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        await ValidateApiReachabilityAsync(stoppingToken);
+
         try
         {
             await foreach (var msg in _channel.Reader.ReadAllAsync(stoppingToken))
@@ -232,7 +284,7 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
             return;
         }
 
-        var apiBaseUrl = _configuration["ApiBaseUrl"] ?? "http://localhost:5000";
+        var apiBaseUrl = GetApiBaseUrl();
         try
         {
             _inputWriter.Write(run, run.Repository, apiBaseUrl, run.Pipeline, run.Feature);
@@ -531,7 +583,7 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
         }
 
         var inputFilePath = WorkflowInputWriter.GetPath(run.Repository!);
-        var apiBaseUrl = _configuration["ApiBaseUrl"] ?? "http://localhost:5000";
+        var apiBaseUrl = GetApiBaseUrl();
         try
         {
             _injector.Inject(stepRun, run, run.Repository!, stepDef, agentMarkdownBody, inputFilePath, apiBaseUrl);

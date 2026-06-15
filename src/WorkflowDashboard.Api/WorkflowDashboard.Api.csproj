@@ -35,4 +35,23 @@
     <Exec WorkingDirectory="$(SpaRoot)" Command="npm install" />
   </Target>
 
+  <Target Name="PublishRunNpmBuild" BeforeTargets="ComputeFilesToPublish">
+    <Exec Command="node --version" ContinueOnError="true">
+      <Output TaskParameter="ExitCode" PropertyName="ErrorCode" />
+    </Exec>
+    <Error Condition="'$(ErrorCode)' != '0'" Text="Node.js is required to publish this project. To continue, please install Node.js from https://nodejs.org/." />
+    <Message Importance="high" Text="Restoring npm dependencies for Angular frontend..." />
+    <Exec WorkingDirectory="$(SpaRoot)" Command="npm install" />
+    <Message Importance="high" Text="Building Angular frontend (production)..." />
+    <Exec WorkingDirectory="$(SpaRoot)" Command="npx ng build --configuration production" />
+    <ItemGroup>
+      <AngularDistFiles Include="$(SpaRoot)dist\workflow-dashboard-ui\browser\**" />
+      <ResolvedFileToPublish Include="@(AngularDistFiles)">
+        <RelativePath>wwwroot\%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
 </Project>

@@ -73,7 +73,7 @@ For **each task** in `tasks.md`, in order:
 
    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
    ```
-   The `TICKET_NUMBER` (e.g. `PANDA-83`) is in your context table at the top of this file.
+   The `TICKET_NUMBER` (e.g. `XY-83`) is in your context table at the top of this file.
    `{type}` is one of: `feat`, `fix`, `refactor`, `test`, `chore`, `docs`.
 
    Run:
