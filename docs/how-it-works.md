@@ -30,16 +30,16 @@ This page explains the full technical flow of the Workflow Automation Dashboard 
 │            └────────────┬────────────┘                       │
 │                         │                                    │
 │                   ProcessLauncher                            │
-│              (spawns copilot CLI process)                    │
+│              (spawns AI CLI process)                         │
 │                                                              │
 │  SQLite  ←─ EntityFramework Core                            │
 └──────────────────────────────────────────────────────────────┘
 						  │  spawns
 ┌─────────────────────────▼────────────────────────────────────┐
-│        GitHub Copilot CLI  (`copilot` executable)            │
+│        AI CLI agent (Copilot / Claude / Custom)              │
 │   runs inside the target repository working directory        │
-│   reads  .github/instructions/active-workflow.instructions.md│
-│   reads  .github/copilot/workflow-input.md                   │
+│   reads  {configured instructions file}                      │
+│   reads  {configured input file}                             │
 │   writes openspec/changes/{featureSlug}/ artifacts           │
 │   commits via git                                            │
 │   calls back  POST /api/pipeline-runs/{id}/steps/{id}/complete│
@@ -70,7 +70,7 @@ On `StartRun`:
 - If the same repository is already running a pipeline, the new run is set to `status = queued` and waits.
 - Otherwise the run starts immediately.
 
-The orchestrator writes two files to the repo (see next section) and then **spawns the GitHub Copilot CLI**.
+The orchestrator writes two files to the repo (see next section) and then **spawns the AI CLI agent**.
 
 ---
 
@@ -80,7 +80,8 @@ Before spawning the agent process, the orchestrator writes two files into the ta
 
 #### `workflow-input.md` — context for all agents
 
-Path: `.github/copilot/workflow-input.md`
+Path: the configured `InputFileRelativePath` setting.
+_Default for Copilot: `.github/copilot/workflow-input.md`. Default for Claude: `.claude/workflow-input.md`._
 
 This file is written once per pipeline run and **accumulates information** as steps execute. It contains:
 
@@ -109,30 +110,36 @@ Every agent is instructed to read this file first. Reviewer feedback is appended
 
 #### `active-workflow.instructions.md` — current step instructions
 
-Path: `.github/instructions/active-workflow.instructions.md`
+Path: the configured `InstructionsRelativePath` setting (default: `.github/instructions/active-workflow.instructions.md`).
 
 This file is **overwritten** before each step starts. It contains:
 - An autostart directive ("do not wait for user input, begin immediately")
 - A context table with all run IDs and environment variable values
 - The **OpenSpec folder rule** (see below)
-- Step 1: read `workflow-input.md`
+- Step 1: read the input file
 - Step 2: the agent's own markdown task definition (loaded from the catalog)
 - Step 3: the PowerShell completion command (see below)
 
-GitHub Copilot reads `.github/instructions/` automatically on startup, so the agent receives its full task without any user interaction.
+**Copilot:** reads `.github/instructions/` automatically on startup, so the agent receives its full task without any user interaction.
+
+**Claude Code:** the instructions are written to `CLAUDE.md` in the repository root (set `InstructionsRelativePath` to `CLAUDE.md`), which Claude Code reads automatically on startup.
 
 ---
 
-### 4. Spawning the GitHub Copilot CLI
+### 4. Spawning the AI CLI agent
 
-The `ProcessLauncher` starts the `copilot` executable (path configured in `appsettings.json`).
+The `ProcessLauncher` starts the configured AI CLI executable. The tool, executable, and flags are all configurable via the Settings page or `appsettings.json`.
 
 #### Interactive mode (default)
 
-A new **cmd.exe** terminal window opens. The copilot CLI starts in interactive mode:
+A new **cmd.exe** terminal window opens. The CLI starts in interactive mode with an auto-start prompt:
 
 ```
+# Copilot
 copilot -i "Begin the workflow session. Read .github/copilot/workflow-input.md and follow the workflow instructions you have been given." --allow-all-tools
+
+# Claude
+claude -p "Begin the workflow session. Read .claude/workflow-input.md and follow the workflow instructions you have been given."
 ```
 
 The agent reads the instructions file, does its work, commits, and calls the completion API — all autonomously. You can watch the terminal window but do not need to interact with it.
@@ -163,7 +170,7 @@ These are also echoed in the instructions file so the agent can reference them e
 
 A well-behaved agent follows this sequence after reading its instructions:
 
-1. **Read** `.github/copilot/workflow-input.md` for context and any prior feedback.
+1. **Read** the configured input file (default: `.github/copilot/workflow-input.md` for Copilot, `.claude/workflow-input.md` for Claude) for context and any prior feedback.
 2. **Do its domain work** — write files, run commands, make API calls.
 3. **Write all output artifacts** to `openspec/changes/{featureSlug}/` (see OpenSpec convention below).
 4. **Commit** all changes:

@@ -20,19 +20,21 @@ Welcome to the help documentation for the **Workflow Automation Dashboard** — 
 | [Features](features) | Track feature items and attach spec documents |
 | [Input Requests](input-requests) | Answer questions raised by a running agent |
 | [Workflow Runs](runs) | Legacy standalone workflow run monitor |
-| [How It Works](how-it-works) | Full technical walkthrough — Copilot CLI wiring, files, completion protocol |
+| [How It Works](how-it-works) | Full technical walkthrough — AI CLI wiring, files, completion protocol |
 | [Configuration](configuration) | `appsettings.json` reference for all server settings |
+| [Settings](configuration) | Configure the AI CLI tool, agents folder, and runner behaviour |
 
 ---
 
 ## Quick-start checklist
 
-1. **Add a repository** — go to [Repositories](repositories) and register the local path of the git repo you want to automate.
-2. **Check the catalog** — go to [Agents](agents) and confirm your agents are loaded and not broken.
-3. **Design a pipeline** — go to [Pipelines](pipelines) → *New Pipeline*, add agent steps and approval steps, then save.
-4. **Start a run** — click **Run** on a pipeline card, fill in the ticket number and optional instructions, then click **Start run**.
-5. **Watch it live** — expand the run panel to see live logs; respond to any [Input Requests](input-requests) as agents ask questions.
-6. **Review approvals** — when a step reaches *waiting approval*, the notification bell in the header will light up. Expand the run panel to approve or reject.
+1. **Configure Settings** — go to [Settings](configuration) and set the **Agents Folder** to the directory containing your agent `.md` files (e.g. `C:\Users\<you>\.copilot\agents`). Also confirm the **CLI Tool** matches what you have installed (`Copilot` or `Claude`).
+2. **Add a repository** — go to [Repositories](repositories) and register the local path of the git repo you want to automate.
+3. **Check the catalog** — go to [Agents](agents) and confirm your agents are loaded and not broken.
+4. **Design a pipeline** — go to [Pipelines](pipelines) → *New Pipeline*, add agent steps and approval steps, then save.
+5. **Start a run** — click **Run** on a pipeline card, fill in the ticket number and optional instructions, then click **Start run**.
+6. **Watch it live** — expand the run panel to see live logs; respond to any [Input Requests](input-requests) as agents ask questions.
+7. **Review approvals** — when a step reaches *waiting approval*, the notification bell in the header will light up. Expand the run panel to approve or reject.
 
 ---
 

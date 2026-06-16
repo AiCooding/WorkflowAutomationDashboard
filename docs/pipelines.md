@@ -56,6 +56,8 @@ On the Pipelines list page, click **Import JSON** in the header and pick a previ
 
 ## Starting a pipeline run
 
+> **Before you start:** Make sure the agents folder is configured in **Settings → Agent Catalog**. Without it, agent steps cannot discover their definitions and will fail immediately. A banner at the top of this page will warn you if it is not set.
+
 Click **Run** on any pipeline card to expand the run form.
 
 | Field | Description |

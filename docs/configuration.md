@@ -7,6 +7,8 @@ layout: default
 
 All server-side settings are controlled through `appsettings.json` (or `appsettings.Development.json` for local overrides) in the `WorkflowDashboard.Api` project.
 
+> Most of these settings can be changed live from the **[Settings page](index)** in the dashboard UI — no server restart required. The `appsettings.json` file acts as the fallback default when no UI overrides have been saved.
+
 ---
 
 ## Full reference
@@ -20,15 +22,16 @@ All server-side settings are controlled through `appsettings.json` (or `appsetti
   },
 
   "Catalog": {
-	"WorkflowsDir": null,
 	"AgentsDir": null
   },
 
   "AgentRunner": {
 	"Enabled": true,
-	"CopilotExecutable": "copilot",
-	"CopilotArgs": [],
+	"CliTool": "Copilot",
+	"Executable": "copilot",
+	"ExtraArgs": [],
 	"InstructionsRelativePath": ".github/instructions/active-workflow.instructions.md",
+	"InputFileRelativePath": ".github/copilot/workflow-input.md",
 	"InteractiveTerminal": true,
 	"InteractiveStartPrompt": "Begin the workflow session. Read `.github/copilot/workflow-input.md` and follow the workflow instructions you have been given.",
 	"PersistLogsToRepo": false,
@@ -67,8 +70,7 @@ SQLite connection string. The default `Data Source=workflow.db` places the datab
 
 | Key | Description |
 |---|---|
-| `WorkflowsDir` | Absolute path to the folder containing workflow catalog entries (`.md` files). Leave `null` to disable. |
-| `AgentsDir` | Absolute path to the folder containing agent catalog entries (`.md` files). Leave `null` to disable. |
+| `AgentsDir` | Required. Absolute path to the folder containing agent catalog entries (`.md` files). There is no default — this must be configured. Can be set from the **Settings** page in the UI without a server restart. |
 
 The catalog is scanned on startup and can be refreshed manually from the [Agents](agents) page.
 
@@ -84,26 +86,38 @@ When disabled, attempting to start a pipeline run will immediately fail the firs
 
 ---
 
-### `CopilotExecutable`
+### `CliTool`
 
-The name or full path of the GitHub Copilot CLI executable.
+Selects which AI CLI tool is launched. Accepted values: `Copilot`, `Claude`, `Custom`. This can also be changed from the **Settings** page in the dashboard without a server restart.
 
-| Value | When to use |
-|---|---|
-| `copilot` | Default. Resolves via `PATH`. Works when `gh copilot` is aliased or `copilot` is on the system PATH. |
-| `gh` with `CopilotArgs: ["copilot", "agent", ...]` | If using the GitHub CLI extension form. |
-| `C:\path\to\copilot.exe` | Absolute path if the executable is not on PATH. |
+| Value | Executable default | Flag style | Extra flags |
+|---|---|---|---|
+| `Copilot` | `copilot` | `-i "<prompt>"` | `--allow-all-tools` |
+| `Claude` | `claude` | `-p "<prompt>"` | _(none)_ |
+| `Custom` | _(user set)_ | _(none added)_ | _(none)_ |
 
 ---
 
-### `CopilotArgs`
+### `Executable`
 
-An optional list of additional arguments prepended to every copilot invocation. Leave empty for the default single-executable setup.
+The name or full path of the AI CLI executable.
+
+| Value | When to use |
+|---|---|
+| `copilot` | Default. Resolves via `PATH`. Use with `CliTool: Copilot`. |
+| `claude` | Resolves via `PATH`. Use with `CliTool: Claude`. |
+| `C:\path\to\executable.exe` | Absolute path if the executable is not on PATH. Use with `CliTool: Custom` or any tool not on PATH. |
+
+---
+
+### `ExtraArgs`
+
+An optional list of additional arguments prepended to every CLI invocation. Leave empty for the default single-executable setup.
 
 Example — using a stub script during development:
 ```json
-"CopilotExecutable": "powershell.exe",
-"CopilotArgs": ["-File", "C:\\dev\\stub-agent.ps1"]
+"Executable": "powershell.exe",
+"ExtraArgs": ["-File", "C:\\dev\\stub-agent.ps1"]
 ```
 
 ---
@@ -114,9 +128,17 @@ Relative path (from the repository root) where the per-step instructions file is
 
 Default: `.github/instructions/active-workflow.instructions.md`
 
-GitHub Copilot reads all `.md` files under `.github/instructions/` automatically on startup — this is what allows the agent to receive its task without any manual typing.
+**Copilot:** reads all `.md` files under `.github/instructions/` automatically on startup — the default path matches this convention.
 
-> Do not change this unless you have a specific reason; the default path matches GitHub Copilot's standard instructions discovery.
+**Claude Code:** reads `CLAUDE.md` from the repository root automatically on startup. Set `InstructionsRelativePath` to `CLAUDE.md` when using `CliTool: Claude`.
+
+> For Copilot, do not change the default unless you have a specific reason; the default path matches GitHub Copilot's standard instructions discovery.
+
+---
+
+### `InputFileRelativePath`
+
+Relative path (from repo root) where the cumulative pipeline context file is written. This file is created at pipeline start and appended after every step. Default matches Copilot convention; for Claude use `.claude/workflow-input.md`.
 
 ---
 
@@ -136,7 +158,7 @@ GitHub Copilot reads all `.md` files under `.github/instructions/` automatically
 
 ### `InteractiveStartPrompt`
 
-The initial prompt passed to `copilot -i "<prompt>"` when `InteractiveTerminal` is `true`. Copilot executes this prompt immediately on startup, so the agent begins its task without waiting for user input.
+The initial prompt passed to the CLI when `InteractiveTerminal` is `true`. The flag used varies by tool: `-i "<prompt>"` for Copilot, `-p "<prompt>"` for Claude. The CLI executes this prompt immediately on startup, so the agent begins its task without waiting for user input.
 
 Default:
 ```

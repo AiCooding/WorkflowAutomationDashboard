@@ -22,6 +22,14 @@ The Agents page shows only entries of kind **agent**.
 
 ---
 
+## Configuring the agents folder
+
+Before any agents appear here the **Agents Folder** must be configured. Go to **Settings → Agent Catalog** and enter the absolute path to the directory containing your agent `.md` files.
+
+> If the agents folder is not configured a blue info banner is shown at the top of this page with a direct link to Settings.
+
+---
+
 ## Agent card fields
 
 | Field | Description |
@@ -40,7 +48,7 @@ An agent marked as **broken** cannot be selected in the pipeline designer and wi
 
 Common causes:
 - The agent definition file was moved or deleted.
-- The catalog folder path in `appsettings.json` is incorrect.
+- The agents folder is not configured (set it in **Settings → Agent Catalog**) or the path is wrong.
 - The agent definition has a syntax error.
 
 Fix the underlying file issue and click **Refresh** to reload the catalog.
@@ -50,6 +58,8 @@ Fix the underlying file issue and click **Refresh** to reload the catalog.
 ## Refreshing the catalog
 
 Click the **Refresh** (↻) button to re-scan the catalog directory. New agents appear immediately; removed or broken agents are updated accordingly.
+
+If you change the agents folder path in **Settings**, click Refresh to reload agents from the new location.
 
 ---
 

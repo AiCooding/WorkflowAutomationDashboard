@@ -1,6 +1,10 @@
 # Workflow Automation Dashboard
 
-A self-hosted dashboard for orchestrating AI agent pipelines using the Copilot CLI. The dashboard is the **orchestrator** — it manages pipeline runs, creates git branches, spawns Copilot CLI agents in terminal windows, and handles step-to-step handoffs including user approval gates.
+A self-hosted dashboard for orchestrating AI agent pipelines using Copilot or Claude CLI. The dashboard is the **orchestrator** — it manages pipeline runs, creates git branches, spawns AI CLI agents in terminal windows, and handles step-to-step handoffs including user approval gates. All the feature relevant docuemntation is using the openspec pattern.
+
+> 📖 **Detailed documentation:** [aicooding.github.io/WorkflowAutomationDashboard](https://aicooding.github.io/WorkflowAutomationDashboard/)
+
+
 
 ---
 
@@ -11,15 +15,15 @@ A self-hosted dashboard for orchestrating AI agent pipelines using the Copilot C
 | Backend | ASP.NET Core 10 (REST + SignalR + EF Core/SQLite) |
 | Frontend | Angular 21 + Angular Material |
 | Real-time | SignalR hub at `/hubs/workflow` |
-| Agent executor | Copilot CLI (`copilot` on PATH) |
+| Agent executor | Configurable AI CLI — GitHub Copilot, Claude Code, or custom executable |
 | Git integration | `git` on PATH — branch creation and commit enforcement |
 
 ### How it works
 
 1. You define a **Pipeline** in the designer (sequence of agent steps and user approval steps).
 2. You start a **Pipeline Run** — providing a ticket number (e.g. `TEST-42`), branch prefix, repository, and optional initial instructions.
-3. The dashboard creates a git branch (`feature/TEST-42`), writes `workflow-input.md` as the shared memory file, and launches the first agent in a terminal window.
-4. Each agent reads `workflow-input.md`, does its domain work, commits, then calls the completion REST API.
+3. The dashboard creates a git branch (`feature/TEST-42`), writes the input file (path varies by configured CLI tool) as the shared memory file, and launches the first agent in a terminal window.
+4. Each agent reads the configured input file and instructions (Copilot: `.github/instructions/active-workflow.instructions.md`; Claude: `CLAUDE.md`), does its domain work, commits, then calls the completion REST API.
 5. The dashboard advances to the next step — either another agent or a user approval gate shown in the UI.
 6. Reviewer agents write findings to `openspec/changes/{slug}/reviews/{stepId}-review.md` and can loop steps back for revision.
 
@@ -31,13 +35,34 @@ Agent definitions live in `~/.copilot/agents/`. See `docs/copilot-defaults/` for
 
 ---
 
+### OpenSpec artifact layout
+
+Each pipeline run writes artifacts under the linked repository:
+
+```
+{repo}/
+├── {InputFileRelativePath}            # Shared memory — read by every agent
+│   # (Copilot default: .github/copilot/workflow-input.md)
+│   # (Claude  default: .claude/workflow-input.md)
+└── openspec/changes/{ticket-slug}/
+    ├── proposal.md                    # PM output
+    ├── design.md                      # Architect output
+    ├── tasks.md                       # Architect output
+    ├── specs/                         # Requirements and scenarios (flat)
+    └── reviews/                       # Reviewer agent findings
+        └── {stepId}-review.md
+```
+
+`workflow-input.md` persists for the entire pipeline run. Each agent appends its output under a structured header so the next agent always has full context.
+
 ## Prerequisites
 
 - .NET 10 SDK
 - Node.js 22+
 - `git` on PATH
-- `copilot` CLI on PATH
-- Agent definitions installed to `~/.copilot/agents/` (see `docs/copilot-defaults/`)
+- An AI CLI tool on PATH — GitHub Copilot CLI (`copilot`), Claude Code (`claude`), or a custom executable
+- Agents folder configured in the Settings page
+- Agent definitions installed to your agents directory (see `docs/copilot-defaults/`)
 
 ---
 
@@ -126,11 +151,17 @@ publish/
 Copy `src/WorkflowDashboard.Api/appsettings.json` next to the executable and adjust as needed:
 
 | Setting | Default | Description |
-|---------|---------|-------------|
-| `ApiBaseUrl` | `http://localhost:5000` | URL agents use to call back the API. Change this if you bind to a different port or hostname. |
+|---|---|---|
+| `ApiBaseUrl` | `http://localhost:5000` | URL agents use to call back the API. |
 | `ConnectionStrings.WorkflowDb` | `Data Source=workflow.db` | Path to the SQLite database file. |
-| `Catalog.WorkflowsDir` | `null` | Absolute path to your workflows directory. |
-| `Catalog.AgentsDir` | `null` | Absolute path to your agent definitions directory. |
+| `Catalog.AgentsDir` | _(none)_ | Absolute path to your agent definitions directory. Can be set via the Settings page. |
+| `AgentRunner.CliTool` | `Copilot` | Which CLI tool to use: `Copilot`, `Claude`, or `Custom`. Configurable via Settings page. |
+| `AgentRunner.Executable` | `copilot` | Name or absolute path of the CLI executable. |
+| `AgentRunner.ExtraArgs` | `[]` | Optional extra arguments prepended to every CLI invocation. |
+| `AgentRunner.InstructionsRelativePath` | `.github/instructions/active-workflow.instructions.md` | Where the per-step instructions file is written in each repo. |
+| `AgentRunner.InputFileRelativePath` | `.github/copilot/workflow-input.md` | Where the cumulative pipeline context file is written. |
+| `AgentRunner.InteractiveTerminal` | `true` | Opens a visible terminal window for each agent step. |
+| `AgentRunner.Enabled` | `true` | Set to `false` to disable process spawning. |
 
 To bind to a different port:
 
@@ -172,28 +203,12 @@ All REST endpoints are under `/api/*`. SignalR hub at `/hubs/workflow`.
 | Repositories | `GET/POST /api/repositories`, `GET/PUT/DELETE /api/repositories/{id}` |
 | Features | `GET/POST /api/features`, `GET/PUT/DELETE /api/features/{id}` |
 | Catalog | `GET /api/catalog`, `POST /api/catalog/refresh`, `GET /api/catalog/{slug}` |
+| Settings | `GET /api/settings`, `PUT /api/settings`, `DELETE /api/settings` |
 | Dashboard | `GET /api/dashboard/summary` |
 
 SignalR events: `PipelineRunUpdated`, `StepRunUpdated`, `ApprovalRequested`, `ApprovalDecided`, `RepositoryUpdated`, `CatalogRefreshed`, `StepLog`, `StepLogTail`.
 
 ---
 
-## OpenSpec artifact layout
 
-Each pipeline run writes artifacts under the linked repository:
-
-```
-{repo}/
-├── .github/copilot/
-│   └── workflow-input.md              # Shared memory — read by every agent
-└── openspec/changes/{ticket-slug}/
-    ├── proposal.md                    # PM output
-    ├── design.md                      # Architect output
-    ├── tasks.md                       # Architect output
-    ├── specs/                         # Requirements and scenarios (flat)
-    └── reviews/                       # Reviewer agent findings
-        └── {stepId}-review.md
-```
-
-`workflow-input.md` persists for the entire pipeline run. Each agent appends its output under a structured header so the next agent always has full context.
 
