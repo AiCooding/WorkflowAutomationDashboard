@@ -18,15 +18,18 @@ public class RepositoriesController : ControllerBase
     private readonly WorkflowDbContext _db;
     private readonly IHubContext<WorkflowHub> _hub;
     private readonly IPipelineOrchestrator _orchestrator;
+    private readonly ILogger<RepositoriesController> _logger;
 
     public RepositoriesController(
         WorkflowDbContext db,
         IHubContext<WorkflowHub> hub,
-        IPipelineOrchestrator orchestrator)
+        IPipelineOrchestrator orchestrator,
+        ILogger<RepositoriesController> logger)
     {
         _db = db;
         _hub = hub;
         _orchestrator = orchestrator;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -68,11 +71,15 @@ public class RepositoriesController : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.LogWarning(ex, "Repository create rejected because the path was invalid: {Path}.", path);
             return BadRequest(new { message = $"Invalid path: {ex.Message}" });
         }
 
         if (!Directory.Exists(fullPath))
+        {
+            _logger.LogWarning("Repository create rejected because the directory does not exist: {Path}.", fullPath);
             return BadRequest(new { message = $"Path does not exist or is not a directory: {fullPath}" });
+        }
 
         if (await _db.Repositories.AnyAsync(r => r.Path == fullPath))
             return BadRequest(new { message = "A repository with this path is already registered." });
@@ -95,6 +102,7 @@ public class RepositoriesController : ControllerBase
 
         var dto = ToDto(repo, 0);
         await _hub.Clients.All.SendAsync(WorkflowHubMethods.RepositoryUpdated, dto);
+        _logger.LogInformation("Registered repository {RepositoryId} at {RepositoryPath}.", repo.Id, repo.Path);
 
         return CreatedAtAction(nameof(GetById), new { id = repo.Id }, dto);
     }
@@ -121,11 +129,15 @@ public class RepositoriesController : ControllerBase
             }
             catch (Exception ex)
             {
+                _logger.LogWarning(ex, "Repository update rejected because the path was invalid: {Path}.", path);
                 return BadRequest(new { message = $"Invalid path: {ex.Message}" });
             }
 
             if (!Directory.Exists(fullPath))
+            {
+                _logger.LogWarning("Repository update rejected because the directory does not exist: {Path}.", fullPath);
                 return BadRequest(new { message = $"Path does not exist or is not a directory: {fullPath}" });
+            }
 
             if (await _db.Repositories.AnyAsync(r => r.Path == fullPath && r.Id != id))
                 return BadRequest(new { message = "Another repository with this path is already registered." });
@@ -139,6 +151,7 @@ public class RepositoriesController : ControllerBase
         var count = await _db.Features.CountAsync(f => f.RepositoryId == id);
         var dto = ToDto(repo, count);
         await _hub.Clients.All.SendAsync(WorkflowHubMethods.RepositoryUpdated, dto);
+        _logger.LogInformation("Updated repository {RepositoryId}.", id);
         return dto;
     }
 
@@ -156,7 +169,10 @@ public class RepositoriesController : ControllerBase
         foreach (var runId in activeRunIds)
         {
             try { await _orchestrator.CancelRunAsync(runId); }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to cancel active pipeline run {RunId} while deleting repository {RepositoryId}.", runId, id);
+            }
         }
 
         var orphaned = await _db.Features
@@ -183,6 +199,9 @@ public class RepositoriesController : ControllerBase
         foreach (var f in orphaned)
             await _hub.Clients.All.SendAsync(WorkflowHubMethods.FeatureUpdated, f);
 
+        _logger.LogInformation(
+            "Deleted repository {RepositoryId}; cancelled {ActiveRunCount} runs and orphaned {FeatureCount} features.",
+            id, activeRunIds.Count, orphaned.Count);
         return NoContent();
     }
 

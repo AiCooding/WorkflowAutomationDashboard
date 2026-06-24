@@ -6,16 +6,19 @@ namespace WorkflowDashboard.Api.Hubs;
 public class WorkflowHub : Hub
 {
     private readonly IPipelineOrchestrator _orchestrator;
+    private readonly ILogger<WorkflowHub> _logger;
 
-    public WorkflowHub(IPipelineOrchestrator orchestrator)
+    public WorkflowHub(IPipelineOrchestrator orchestrator, ILogger<WorkflowHub> logger)
     {
         _orchestrator = orchestrator;
+        _logger = logger;
     }
 
     public async Task SubscribeToStepRun(string stepRunId)
     {
         if (string.IsNullOrWhiteSpace(stepRunId)) return;
         await Groups.AddToGroupAsync(Context.ConnectionId, $"steprun:{stepRunId}");
+        _logger.LogDebug("SignalR connection {ConnectionId} subscribed to step run {StepRunId}.", Context.ConnectionId, stepRunId);
 
         var tail = _orchestrator.GetLogTail(stepRunId);
         var payload = new
@@ -34,6 +37,7 @@ public class WorkflowHub : Hub
     public Task UnsubscribeFromStepRun(string stepRunId)
     {
         if (string.IsNullOrWhiteSpace(stepRunId)) return Task.CompletedTask;
+        _logger.LogDebug("SignalR connection {ConnectionId} unsubscribed from step run {StepRunId}.", Context.ConnectionId, stepRunId);
         return Groups.RemoveFromGroupAsync(Context.ConnectionId, $"steprun:{stepRunId}");
     }
 }

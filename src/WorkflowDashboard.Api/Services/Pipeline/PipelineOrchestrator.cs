@@ -119,6 +119,7 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
 
     public Task StartRunAsync(string pipelineRunId, CancellationToken ct = default)
     {
+        _logger.LogInformation("Queueing pipeline run {RunId}.", pipelineRunId);
         _channel.Writer.TryWrite(new OrchestratorMessage
         {
             Type = OrchestratorMessageType.StartRun,
@@ -129,6 +130,7 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
 
     public async Task CancelRunAsync(string pipelineRunId, CancellationToken ct = default)
     {
+        _logger.LogInformation("Cancelling pipeline run {RunId}.", pipelineRunId);
         foreach (var kvp in _running)
         {
             if (kvp.Value.StepRun.PipelineRunId == pipelineRunId)
@@ -185,6 +187,7 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
 
     public async Task RestartRunAsync(string pipelineRunId, string fromStepId, CancellationToken ct = default)
     {
+        _logger.LogInformation("Restarting pipeline run {RunId} from step {StepId}.", pipelineRunId, fromStepId);
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<WorkflowDbContext>();
 
@@ -311,6 +314,13 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
             return;
         }
 
+        var steps = ParseSteps(run.Pipeline.StepsJson);
+        _logger.LogInformation(
+            "Starting pipeline run {RunId} for repository {RepositoryId} with {StepCount} steps.",
+            run.Id,
+            run.RepositoryId,
+            steps.Count);
+
         if (run.Status is "cancelled" or "completed" or "failed")
         {
             StartNextQueuedRun(run.RepositoryId);
@@ -329,8 +339,8 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
         }
 
         _activeRuns[run.RepositoryId] = pipelineRunId;
+        _logger.LogInformation("Pipeline run {RunId} acquired repository slot {RepositoryId}.", run.Id, run.RepositoryId);
 
-        var steps = ParseSteps(run.Pipeline.StepsJson);
         if (steps.Count == 0)
         {
             await FailRunAsync(db, run, "Pipeline has no steps.", ct);
@@ -416,6 +426,7 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
         var isFeedback = string.Equals(decision, "feedback", StringComparison.OrdinalIgnoreCase);
         if (isFeedback && currentStepDef.CanGiveFeedback && !string.IsNullOrEmpty(currentStepDef.ReturnTo))
         {
+            _logger.LogInformation("Pipeline run {RunId} step {StepId} returned feedback to {ReturnTo}.", run.Id, stepRun.StepId, currentStepDef.ReturnTo);
             var returnToStep = steps.FirstOrDefault(s => s.Id == currentStepDef.ReturnTo);
             if (returnToStep is null)
             {
@@ -461,6 +472,7 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
             run.CompletedAt = DateTime.UtcNow;
             await db.SaveChangesAsync(ct);
             await _hub.Clients.All.SendAsync(PipelineHubMethods.PipelineRunUpdated, run, ct);
+            _logger.LogInformation("Pipeline run {RunId} completed.", run.Id);
             FreeRepoSlot(run.RepositoryId, run.Id);
         }
         else
@@ -504,6 +516,7 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
 
         if (approval.Status == "approved")
         {
+            _logger.LogInformation("Approval {ApprovalId} approved for run {RunId}.", approval.Id, run.Id);
             var currentIdx = steps.FindIndex(s => s.Id == approval.StepId);
             var nextIdx = currentIdx + 1;
 
@@ -519,6 +532,7 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
                 run.CompletedAt = DateTime.UtcNow;
                 await db.SaveChangesAsync(ct);
                 await _hub.Clients.All.SendAsync(PipelineHubMethods.PipelineRunUpdated, run, ct);
+                _logger.LogInformation("Pipeline run {RunId} completed after approval {ApprovalId}.", run.Id, approval.Id);
                 FreeRepoSlot(run.RepositoryId, run.Id);
             }
             else
@@ -535,6 +549,7 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
         }
         else if (approval.Status == "rejected" && approvalStep?.ReturnTo is not null)
         {
+            _logger.LogInformation("Approval {ApprovalId} rejected for run {RunId}; returning to {ReturnTo}.", approval.Id, run.Id, approvalStep.ReturnTo);
             var returnToStep = steps.FirstOrDefault(s => s.Id == approvalStep.ReturnTo);
             if (returnToStep is null)
             {
@@ -584,10 +599,12 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
     {
         if (stepDef.Type == "agent")
         {
+            _logger.LogInformation("Starting agent step {StepId} for run {RunId} (attempt {AttemptNumber}).", stepDef.Id, run.Id, attemptNumber);
             await StartAgentStepAsync(db, run, stepDef, ct, attemptNumber);
         }
         else if (stepDef.Type == "userApproval")
         {
+            _logger.LogInformation("Starting approval step {StepId} for run {RunId}.", stepDef.Id, run.Id);
             await StartApprovalStepAsync(db, run, stepDef, ct);
         }
         else
@@ -671,6 +688,7 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
         stepRun.ProcessId = process.Id;
         await db.SaveChangesAsync(ct);
         await _hub.Clients.All.SendAsync(PipelineHubMethods.StepRunUpdated, stepRun, ct);
+        _logger.LogInformation("Agent step {StepId} started process {ProcessId} for run {RunId}.", stepDef.Id, process.Id, run.Id);
 
         var logBatcher = new LogBatcher(stepRun.Id, _options, _hub, _logger);
         var cts = new CancellationTokenSource();
@@ -743,6 +761,7 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
         await _hub.Clients.All.SendAsync(PipelineHubMethods.StepRunUpdated, stepRun, ct);
         await _hub.Clients.All.SendAsync(PipelineHubMethods.PipelineRunUpdated, run, ct);
         await _hub.Clients.All.SendAsync(PipelineHubMethods.ApprovalRequested, approval, ct);
+        _logger.LogInformation("Approval requested for run {RunId}, step {StepId}, approval {ApprovalId}.", run.Id, stepDef.Id, approval.Id);
     }
 
     private async Task FailRunAsync(WorkflowDbContext db, PipelineRun run, string reason, CancellationToken ct)
@@ -752,12 +771,14 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
         run.CompletedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
         await _hub.Clients.All.SendAsync(PipelineHubMethods.PipelineRunUpdated, run, ct);
+        _logger.LogWarning("Pipeline run {RunId} failed: {Reason}", run.Id, reason);
         FreeRepoSlot(run.RepositoryId, run.Id);
     }
 
     private void FreeRepoSlot(string repositoryId, string pipelineRunId)
     {
         _activeRuns.TryRemove(new KeyValuePair<string, string>(repositoryId, pipelineRunId));
+        _logger.LogInformation("Released repository slot {RepositoryId} for run {RunId}.", repositoryId, pipelineRunId);
         StartNextQueuedRun(repositoryId);
     }
 
@@ -765,6 +786,7 @@ public sealed class PipelineOrchestrator : BackgroundService, IPipelineOrchestra
     {
         if (_runQueues.TryGetValue(repositoryId, out var queue) && queue.TryDequeue(out var nextRunId))
         {
+            _logger.LogInformation("Dequeued next pipeline run {RunId} for repository {RepositoryId}.", nextRunId, repositoryId);
             _channel.Writer.TryWrite(new OrchestratorMessage
             {
                 Type = OrchestratorMessageType.StartRun,

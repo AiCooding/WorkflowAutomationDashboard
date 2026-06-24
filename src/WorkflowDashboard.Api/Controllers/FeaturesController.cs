@@ -17,11 +17,13 @@ public class FeaturesController : ControllerBase
 
     private readonly WorkflowDbContext _db;
     private readonly IHubContext<WorkflowHub> _hub;
+    private readonly ILogger<FeaturesController> _logger;
 
-    public FeaturesController(WorkflowDbContext db, IHubContext<WorkflowHub> hub)
+    public FeaturesController(WorkflowDbContext db, IHubContext<WorkflowHub> hub, ILogger<FeaturesController> logger)
     {
         _db = db;
         _hub = hub;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -63,7 +65,10 @@ public class FeaturesController : ControllerBase
         if (repo is null)
             return BadRequest(new { message = $"Repository '{body.RepositoryId}' not found." });
         if (!Directory.Exists(repo.Path))
+        {
+            _logger.LogWarning("Feature create rejected because repository path is missing: {RepositoryPath}.", repo.Path);
             return BadRequest(new { message = $"Repository path '{repo.Path}' is missing on disk (repository is broken). Repair it before creating features." });
+        }
 
         string specFolderRel;
 
@@ -137,6 +142,9 @@ public class FeaturesController : ControllerBase
         await _db.SaveChangesAsync();
 
         await _hub.Clients.All.SendAsync(WorkflowHubMethods.FeatureUpdated, feature);
+        _logger.LogInformation(
+            "Created feature {FeatureId} in repository {RepositoryId} using spec folder {SpecFolder}.",
+            feature.Id, feature.RepositoryId, feature.SpecFolder);
         return CreatedAtAction(nameof(GetById), new { id = feature.Id }, feature);
     }
 
@@ -155,6 +163,7 @@ public class FeaturesController : ControllerBase
 
         await _db.SaveChangesAsync();
         await _hub.Clients.All.SendAsync(WorkflowHubMethods.FeatureUpdated, feature);
+        _logger.LogInformation("Updated feature {FeatureId}.", id);
         return feature;
     }
 
@@ -170,6 +179,7 @@ public class FeaturesController : ControllerBase
         await _hub.Clients.All.SendAsync(
             WorkflowHubMethods.FeatureUpdated,
             new FeatureUpdatedEnvelope(feature, Deleted: true));
+        _logger.LogInformation("Deleted feature {FeatureId}.", id);
         return NoContent();
     }
 

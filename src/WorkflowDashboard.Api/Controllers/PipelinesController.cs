@@ -10,10 +10,12 @@ namespace WorkflowDashboard.Api.Controllers;
 public class PipelinesController : ControllerBase
 {
     private readonly WorkflowDbContext _db;
+    private readonly ILogger<PipelinesController> _logger;
 
-    public PipelinesController(WorkflowDbContext db)
+    public PipelinesController(WorkflowDbContext db, ILogger<PipelinesController> logger)
     {
         _db = db;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -47,6 +49,7 @@ public class PipelinesController : ControllerBase
         };
         _db.Pipelines.Add(pipeline);
         await _db.SaveChangesAsync();
+        _logger.LogInformation("Created pipeline {PipelineId} named {PipelineName}.", pipeline.Id, pipeline.Name);
         return CreatedAtAction(nameof(GetById), new { id = pipeline.Id }, pipeline);
     }
 
@@ -63,6 +66,7 @@ public class PipelinesController : ControllerBase
         pipeline.StepsJson = body.StepsJson ?? pipeline.StepsJson;
         pipeline.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+        _logger.LogInformation("Updated pipeline {PipelineId}.", id);
         return pipeline;
     }
 
@@ -73,6 +77,7 @@ public class PipelinesController : ControllerBase
         if (pipeline is null) return NotFound();
         _db.Pipelines.Remove(pipeline);
         await _db.SaveChangesAsync();
+        _logger.LogInformation("Deleted pipeline {PipelineId}.", id);
         return NoContent();
     }
 
@@ -87,6 +92,7 @@ public class PipelinesController : ControllerBase
             pipeline.Description,
             pipeline.StepsJson);
 
+        _logger.LogDebug("Exported pipeline {PipelineId}.", id);
         return new JsonResult(export);
     }
 
@@ -107,6 +113,7 @@ public class PipelinesController : ControllerBase
         };
         _db.Pipelines.Add(pipeline);
         await _db.SaveChangesAsync();
+        _logger.LogInformation("Imported pipeline {PipelineId} named {PipelineName}.", pipeline.Id, pipeline.Name);
         return CreatedAtAction(nameof(GetById), new { id = pipeline.Id }, pipeline);
     }
 }

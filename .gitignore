@@ -26,3 +26,4 @@ dist/
 # OS
 Thumbs.db
 .DS_Store
+src/WorkflowDashboard.Api/Logs/log-*.txt

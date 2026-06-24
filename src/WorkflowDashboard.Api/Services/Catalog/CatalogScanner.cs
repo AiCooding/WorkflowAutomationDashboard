@@ -59,7 +59,11 @@ public sealed class CatalogScanner
         ScanKind("workflow", WorkflowsDir, entries);
         ScanKind("agent", AgentsDir, entries);
         _store.Replace(entries);
-        return _store.Counts();
+        var counts = _store.Counts();
+        _logger.LogInformation(
+            "Catalog scan completed with {WorkflowCount} workflows, {AgentCount} agents, and {BrokenCount} broken entries.",
+            counts.WorkflowCount, counts.AgentCount, counts.BrokenCount);
+        return counts;
     }
 
     private void ScanKind(string kind, string dir, List<CatalogEntry> sink)

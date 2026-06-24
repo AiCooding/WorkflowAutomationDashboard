@@ -16,19 +16,22 @@ public class SettingsController : ControllerBase
     private readonly ICatalogSettingsProvider _catalogProvider;
     private readonly AgentRunnerOptions _agentDefaults;
     private readonly CatalogOptions _catalogDefaults;
+    private readonly ILogger<SettingsController> _logger;
 
     public SettingsController(
         WorkflowDbContext db,
         IAgentRunnerSettingsProvider agentProvider,
         ICatalogSettingsProvider catalogProvider,
         Microsoft.Extensions.Options.IOptions<AgentRunnerOptions> agentDefaults,
-        Microsoft.Extensions.Options.IOptions<CatalogOptions> catalogDefaults)
+        Microsoft.Extensions.Options.IOptions<CatalogOptions> catalogDefaults,
+        ILogger<SettingsController> logger)
     {
         _db = db;
         _agentProvider = agentProvider;
         _catalogProvider = catalogProvider;
         _agentDefaults = agentDefaults.Value;
         _catalogDefaults = catalogDefaults.Value;
+        _logger = logger;
     }
 
     /// <summary>Returns the currently effective settings (DB overrides appsettings).</summary>
@@ -65,6 +68,12 @@ public class SettingsController : ControllerBase
         _agentProvider.Invalidate();
         _catalogProvider.Invalidate();
 
+        _logger.LogInformation(
+            "Updated dashboard settings. Agent runner enabled: {Enabled}, CLI tool: {CliTool}, catalog agents dir: {AgentsDir}.",
+            dto.Enabled,
+            dto.CliTool,
+            dto.AgentsDir ?? _catalogDefaults.AgentsDir ?? "(default)");
+
         return ToDto(_agentProvider.GetEffective(), _catalogProvider.GetEffective());
     }
 
@@ -80,6 +89,7 @@ public class SettingsController : ControllerBase
         }
         _agentProvider.Invalidate();
         _catalogProvider.Invalidate();
+        _logger.LogInformation("Reset dashboard settings to appsettings defaults.");
         return NoContent();
     }
 

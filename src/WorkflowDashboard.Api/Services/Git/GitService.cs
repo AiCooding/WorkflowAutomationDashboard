@@ -45,18 +45,22 @@ public sealed class GitService(ILogger<GitService> logger) : IGitService
 
     public async Task CreateAndCheckoutBranchAsync(string repoPath, string fromBranch, string newBranch)
     {
+        logger.LogInformation("Creating branch {Branch} from {FromBranch} in {Path}.", newBranch, fromBranch, repoPath);
         await RunGitAsync(repoPath, $"checkout {fromBranch}");
         await RunGitAsync(repoPath, "pull --ff-only");
         var (exit, stderr) = await RunGitAsync(repoPath, $"checkout -b {newBranch}");
         if (exit != 0)
             throw new InvalidOperationException($"Failed to create branch '{newBranch}': {stderr}");
+        logger.LogInformation("Created branch {Branch} in {Path}.", newBranch, repoPath);
     }
 
     public async Task CheckoutBranchAsync(string repoPath, string branchName)
     {
+        logger.LogInformation("Checking out branch {Branch} in {Path}.", branchName, repoPath);
         var (exit, stderr) = await RunGitAsync(repoPath, $"checkout {branchName}");
         if (exit != 0)
             throw new InvalidOperationException($"Failed to checkout branch '{branchName}': {stderr}");
+        logger.LogInformation("Checked out branch {Branch} in {Path}.", branchName, repoPath);
     }
 
     private async Task<(int ExitCode, string Output)> RunGitAsync(string repoPath, string arguments)
@@ -80,6 +84,15 @@ public sealed class GitService(ILogger<GitService> logger) : IGitService
         var error = await errorTask;
 
         logger.LogDebug("git -C {Path} {Args} → exit {Code}", repoPath, arguments, process.ExitCode);
+        if (process.ExitCode != 0)
+        {
+            logger.LogWarning(
+                "git -C {Path} {Args} failed with exit code {Code}: {Output}",
+                repoPath,
+                arguments,
+                process.ExitCode,
+                string.IsNullOrWhiteSpace(error) ? output : error);
+        }
         return (process.ExitCode, string.IsNullOrWhiteSpace(output) ? error : output);
     }
 }
