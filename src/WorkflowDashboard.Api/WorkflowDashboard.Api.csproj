@@ -1,57 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" ?>
 <Project Sdk="Microsoft.NET.Sdk.Web">
-
-  <ItemGroup>
-    <ProjectReference Include="..\WorkflowDashboard.Shared\WorkflowDashboard.Shared.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="HtmlSanitizer" Version="9.0.892" />
-    <PackageReference Include="Markdig" Version="1.2.0" />
-    <PackageReference Include="Microsoft.AspNetCore.SpaProxy" Version="10.0.8" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.8" />
-    <PackageReference Include="YamlDotNet" Version="18.0.0" />
-  </ItemGroup>
-
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <SpaRoot>..\workflow-dashboard-ui\</SpaRoot>
-    <SpaProxyServerUrl>http://localhost:4200</SpaProxyServerUrl>
-    <SpaProxyLaunchCommand Condition=" '$(OS)' == 'Windows_NT' ">cmd.exe /K \"npm start\"</SpaProxyLaunchCommand>
-    <SpaProxyLaunchCommand Condition=" '$(OS)' == 'Unix' ">npm start</SpaProxyLaunchCommand>
-  </PropertyGroup>
-
-  <Target Name="DebugEnsureNodeEnv" BeforeTargets="Build" Condition=" '$(Configuration)' == 'Debug' And !Exists('$(SpaRoot)node_modules') ">
-    <Exec Command="node --version" ContinueOnError="true">
-      <Output TaskParameter="ExitCode" PropertyName="ErrorCode" />
-    </Exec>
-    <Error Condition="'$(ErrorCode)' != '0'" Text="Node.js is required to build and run this project. To continue, please install Node.js from https://nodejs.org/, and then restart your command prompt or IDE." />
-    <Message Importance="high" Text="Restoring dependencies using 'npm'. This may take several minutes..." />
-    <Exec WorkingDirectory="$(SpaRoot)" Command="npm install" />
-  </Target>
-
-  <Target Name="PublishRunNpmBuild" BeforeTargets="ComputeFilesToPublish">
-    <Exec Command="node --version" ContinueOnError="true">
-      <Output TaskParameter="ExitCode" PropertyName="ErrorCode" />
-    </Exec>
-    <Error Condition="'$(ErrorCode)' != '0'" Text="Node.js is required to publish this project. To continue, please install Node.js from https://nodejs.org/." />
-    <Message Importance="high" Text="Restoring npm dependencies for Angular frontend..." />
-    <Exec WorkingDirectory="$(SpaRoot)" Command="npm install" />
-    <Message Importance="high" Text="Building Angular frontend (production)..." />
-    <Exec WorkingDirectory="$(SpaRoot)" Command="npx ng build --configuration production" />
     <ItemGroup>
-      <AngularDistFiles Include="$(SpaRoot)dist\workflow-dashboard-ui\browser\**" />
-      <ResolvedFileToPublish Include="@(AngularDistFiles)">
-        <RelativePath>wwwroot\%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
-        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-      </ResolvedFileToPublish>
+        <ProjectReference Include="..\WorkflowDashboard.Shared\WorkflowDashboard.Shared.csproj" />
     </ItemGroup>
-  </Target>
-
+    <ItemGroup>
+        <PackageReference Include="HtmlSanitizer"
+                          Version="9.0.892" />
+        <PackageReference Include="Markdig"
+                          Version="1.2.0" />
+        <PackageReference Include="Microsoft.AspNetCore.SpaProxy"
+                          Version="10.0.8" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design"
+                          Version="10.0.8">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite"
+                          Version="10.0.8" />
+        <PackageReference Include="Serilog.AspNetCore"
+                          Version="8.0.1" />
+        <PackageReference Include="Serilog.Settings.Configuration"
+                          Version="8.0.4" />
+        <PackageReference Include="Serilog.Sinks.Console"
+                          Version="6.0.0" />
+        <PackageReference Include="Serilog.Sinks.File"
+                          Version="6.0.0" />
+        <PackageReference Include="YamlDotNet"
+                          Version="18.0.0" />
+    </ItemGroup>
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <SpaRoot>..\workflow-dashboard-ui\</SpaRoot>
+        <SpaProxyServerUrl>http://localhost:4200</SpaProxyServerUrl>
+        <SpaProxyLaunchCommand Condition=" '$(OS)' == 'Windows_NT' ">cmd.exe /K \"npm start\"</SpaProxyLaunchCommand>
+        <SpaProxyLaunchCommand Condition=" '$(OS)' == 'Unix' ">npm start</SpaProxyLaunchCommand>
+    </PropertyGroup>
+    <Target Name="DebugEnsureNodeEnv"
+            BeforeTargets="Build"
+            Condition=" '$(Configuration)' == 'Debug' And !Exists('$(SpaRoot)node_modules') ">
+        <Exec Command="node --version"
+              ContinueOnError="true">
+            <Output TaskParameter="ExitCode"
+                    PropertyName="ErrorCode" />
+        </Exec>
+        <Error Condition="'$(ErrorCode)' != '0'"
+               Text="Node.js is required to build and run this project. To continue, please install Node.js from https://nodejs.org/, and then restart your command prompt or IDE." />
+        <Message Importance="high"
+                 Text="Restoring dependencies using 'npm'. This may take several minutes..." />
+        <Exec WorkingDirectory="$(SpaRoot)"
+              Command="npm install" />
+    </Target>
+    <Target Name="PublishRunNpmBuild"
+            BeforeTargets="ComputeFilesToPublish">
+        <Exec Command="node --version"
+              ContinueOnError="true">
+            <Output TaskParameter="ExitCode"
+                    PropertyName="ErrorCode" />
+        </Exec>
+        <Error Condition="'$(ErrorCode)' != '0'"
+               Text="Node.js is required to publish this project. To continue, please install Node.js from https://nodejs.org/." />
+        <Message Importance="high"
+                 Text="Restoring npm dependencies for Angular frontend..." />
+        <Exec WorkingDirectory="$(SpaRoot)"
+              Command="npm install" />
+        <Message Importance="high"
+                 Text="Building Angular frontend (production)..." />
+        <Exec WorkingDirectory="$(SpaRoot)"
+              Command="npx ng build --configuration production" />
+        <ItemGroup>
+            <AngularDistFiles Include="$(SpaRoot)dist\workflow-dashboard-ui\browser\**" />
+            <ResolvedFileToPublish Include="@(AngularDistFiles)">
+                <RelativePath>wwwroot\%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
+                <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+                <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+            </ResolvedFileToPublish>
+        </ItemGroup>
+    </Target>
 </Project>

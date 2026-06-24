@@ -12,10 +12,12 @@ public interface IProcessLauncher
 public sealed class ProcessLauncher : IProcessLauncher
 {
     private readonly IAgentRunnerSettingsProvider _provider;
+    private readonly ILogger<ProcessLauncher> _logger;
 
-    public ProcessLauncher(IAgentRunnerSettingsProvider provider)
+    public ProcessLauncher(IAgentRunnerSettingsProvider provider, ILogger<ProcessLauncher> logger)
     {
         _provider = provider;
+        _logger = logger;
     }
 
     public Process Start(PipelineStepRun stepRun, PipelineRun run, Repository repo, string apiBaseUrl)
@@ -39,6 +41,27 @@ public sealed class ProcessLauncher : IProcessLauncher
 
         var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
         process.Start();
+
+        _logger.LogInformation(
+            "Started agent process {ProcessId} " +
+            "| Run: {RunId} | Step: {StepId} ({StepRunId}) | Attempt: {AttemptNumber} " +
+            "| Repo: {RepositoryPath} | Feature: {FeatureId} " +
+            "| Mode: {Mode} " +
+            "| FileName: {FileName} | Arguments(Windows): {Arguments} | ArgumentList(Linux/macOS): [{ArgumentList}] " +
+            "| WorkingDir: {WorkingDirectory} | ShellExecute: {UseShellExecute}",
+            process.Id,
+            run.Id,
+            stepRun.StepId, stepRun.Id,
+            stepRun.AttemptNumber,
+            repo.Path,
+            run.FeatureId ?? "(none)",
+            opts.InteractiveTerminal ? "interactive" : "headless",
+            psi.FileName,
+            psi.Arguments,
+            string.Join(", ", psi.ArgumentList),
+            psi.WorkingDirectory,
+            psi.UseShellExecute);
+
         return process;
     }
 
@@ -80,7 +103,7 @@ public sealed class ProcessLauncher : IProcessLauncher
         return new ProcessStartInfo
         {
             FileName = "cmd.exe",
-            Arguments = $"/k \"{cmdBody}\"",
+            Arguments = $"/k {cmdBody}",
             UseShellExecute = true,
             CreateNoWindow = false,
         };
@@ -178,8 +201,9 @@ public sealed class ProcessLauncher : IProcessLauncher
 
         if (!string.IsNullOrWhiteSpace(opts.InteractiveStartPrompt))
         {
-            var promptFlag = opts.CliTool == CliTool.Claude ? "-p" : "-i";
-            sb.Append(' ').Append(promptFlag).Append(' ').Append(BashQuote(opts.InteractiveStartPrompt));
+            if (opts.CliTool != CliTool.Claude)
+                sb.Append(" -i");
+            sb.Append(' ').Append(BashQuote(opts.InteractiveStartPrompt));
         }
 
         foreach (var flag in GetToolFlags(opts.CliTool))
@@ -220,13 +244,14 @@ public sealed class ProcessLauncher : IProcessLauncher
 
     private static string BuildPromptFlag(CliTool tool, string prompt) => tool switch
     {
-        CliTool.Claude => $"-p \"{EscapeForCmd(prompt)}\"",
+        CliTool.Claude => $"\"{EscapeForCmd(prompt)}\"",
         _ => $"-i \"{EscapeForCmd(prompt)}\"",
     };
 
     private static IEnumerable<string> GetToolFlags(CliTool tool) => tool switch
     {
         CliTool.Copilot => ["--allow-all-tools"],
+        CliTool.Claude => ["--dangerously-skip-permissions"],
         _ => [],
     };
 

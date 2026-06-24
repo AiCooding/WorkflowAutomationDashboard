@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 using WorkflowDashboard.Api.Data;
 using WorkflowDashboard.Api.Hubs;
 using WorkflowDashboard.Api.Services.AgentRunner;
@@ -7,6 +8,13 @@ using WorkflowDashboard.Api.Services.Git;
 using WorkflowDashboard.Api.Services.Pipeline;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, services, loggerConfiguration) => loggerConfiguration
+    .ReadFrom.Configuration(context.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext());
+
+Log.Information("Starting WorkflowDashboard API host.");
 
 builder.Services.AddDbContext<WorkflowDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("WorkflowDb")));
@@ -50,19 +58,34 @@ builder.Services.AddCors(options =>
               .AllowCredentials());
 });
 
-var app = builder.Build();
-
-using (var scope = app.Services.CreateScope())
+try
 {
-    var db = scope.ServiceProvider.GetRequiredService<WorkflowDbContext>();
-    db.Database.Migrate();
+    var app = builder.Build();
+
+    app.UseSerilogRequestLogging();
+
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<WorkflowDbContext>();
+        Log.Information("Applying database migrations.");
+        db.Database.Migrate();
+    }
+
+    app.UseCors("AllowAngularDev");
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
+    app.MapControllers();
+    app.MapHub<WorkflowHub>("/hubs/workflow");
+    app.MapFallbackToFile("index.html");
+
+    Log.Information("WorkflowDashboard API host started.");
+    app.Run();
 }
-
-app.UseCors("AllowAngularDev");
-app.UseDefaultFiles();
-app.UseStaticFiles();
-app.MapControllers();
-app.MapHub<WorkflowHub>("/hubs/workflow");
-app.MapFallbackToFile("index.html");
-
-app.Run();
+catch (Exception ex)
+{
+    Log.Fatal(ex, "WorkflowDashboard API host terminated unexpectedly.");
+}
+finally
+{
+    Log.CloseAndFlush();
+}
