@@ -18,6 +18,7 @@ public class PipelineRun
     public string? DefaultBranch { get; set; }
     public string FeatureSlug { get; set; } = string.Empty;
     public string? InitialInstructions { get; set; }
+    public bool DisableGitCommit { get; set; }
 
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public string BranchName =>

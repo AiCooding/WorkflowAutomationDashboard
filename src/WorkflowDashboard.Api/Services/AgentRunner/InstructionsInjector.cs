@@ -116,20 +116,23 @@ public sealed class InstructionsInjector
         sb.AppendLine();
 
         // ── Git commit ────────────────────────────────────────────────────────
-        sb.AppendLine("---");
-        sb.AppendLine();
-        sb.AppendLine("## Before Signalling Completion — Commit Your Work");
-        sb.AppendLine();
-        sb.AppendLine("Before calling the completion API, commit all your changes:");
-        sb.AppendLine("```powershell");
-        sb.AppendLine("git add -A");
-        sb.AppendLine($"git commit -m \"{run.TicketNumber} {stepDef.Type}: {stepDef.Name}\"");
-        sb.AppendLine("# Adjust the commit message type and description as appropriate.");
-        sb.AppendLine("# Example: TEST-42 feat(proposal): PM draft complete");
-        sb.AppendLine("```");
-        sb.AppendLine();
-        sb.AppendLine("> If there is nothing to commit (no file changes), skip the commit step.");
-        sb.AppendLine();
+        if (!run.DisableGitCommit)
+        {
+            sb.AppendLine("---");
+            sb.AppendLine();
+            sb.AppendLine("## Before Signalling Completion — Commit Your Work");
+            sb.AppendLine();
+            sb.AppendLine("Before calling the completion API, commit all your changes:");
+            sb.AppendLine("```powershell");
+            sb.AppendLine("git add -A");
+            sb.AppendLine($"git commit -m \"{run.TicketNumber} {stepDef.Type}: {stepDef.Name}\"");
+            sb.AppendLine("# Adjust the commit message type and description as appropriate.");
+            sb.AppendLine("# Example: TEST-42 feat(proposal): PM draft complete");
+            sb.AppendLine("```");
+            sb.AppendLine();
+            sb.AppendLine("> If there is nothing to commit (no file changes), skip the commit step.");
+            sb.AppendLine();
+        }
 
         // ── Step 3: Completion ───────────────────────────────────────────────
         sb.AppendLine("---");

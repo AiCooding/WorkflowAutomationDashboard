@@ -126,6 +126,7 @@ public class PipelineRunsController : ControllerBase
             DefaultBranch = defaultBranch,
             FeatureSlug = featureSlug,
         InitialInstructions = body.InitialInstructions,
+            DisableGitCommit = body.DisableGitCommit,
             Status = "pending",
             CurrentStepId = string.Empty,
             CreatedAt = DateTime.UtcNow,
@@ -261,7 +262,8 @@ public record StartPipelineRunBody(
     string? ConflictResolution,
     string? OverrideTicketNumber,
     string? OverrideBranchPrefix,
-    string? InitialInstructions
+    string? InitialInstructions,
+    bool DisableGitCommit = false
 );
 public record ApprovalDecisionBody(string Decision, string? FeedbackText);
 public record AgentStepCompleteBody(string? Decision, string? FeedbackText);

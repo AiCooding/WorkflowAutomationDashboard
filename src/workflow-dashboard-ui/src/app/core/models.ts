@@ -29,11 +29,7 @@ export type AgentType =
 
 export type InputRequestStatus = 'pending' | 'answered' | 'expired';
 
-export type EventType =
-  | 'state_change'
-  | 'log'
-  | 'error'
-  | 'input_requested';
+export type EventType = 'state_change' | 'log' | 'error' | 'input_requested';
 
 export interface Feature {
   id: string;
@@ -257,7 +253,14 @@ export interface PipelineStepDef {
   returnTo?: string | null;
 }
 
-export type PipelineRunStatus = 'pending' | 'running' | 'waiting_approval' | 'completed' | 'failed' | 'cancelled' | 'queued';
+export type PipelineRunStatus =
+  | 'pending'
+  | 'running'
+  | 'waiting_approval'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'queued';
 
 export interface PipelineRun {
   id: string;
@@ -283,7 +286,13 @@ export interface PipelineRun {
   pendingApproval?: ApprovalRequest | null;
 }
 
-export type StepRunStatus = 'pending' | 'running' | 'waiting_approval' | 'completed' | 'failed' | 'skipped';
+export type StepRunStatus =
+  | 'pending'
+  | 'running'
+  | 'waiting_approval'
+  | 'completed'
+  | 'failed'
+  | 'skipped';
 
 export interface PipelineStepRun {
   id: string;
@@ -321,6 +330,7 @@ export interface StartPipelineRunBody {
   overrideTicketNumber?: string | null;
   overrideBranchPrefix?: string | null;
   initialInstructions?: string | null;
+  disableGitCommit?: boolean;
 }
 
 export function computeBranchName(ticketNumber: string, branchPrefix?: string | null): string {
